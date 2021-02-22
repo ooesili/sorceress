@@ -1,6 +1,6 @@
 # Sorceress
 
-[![built with nix](https://builtwithnix.org/badge.svg)](https://builtwithnix.org) [![Crates.io](https://img.shields.io/crates/v/tokio.svg?style=flat-square)](https://crates.io/crates/sorceress) [![docs.rs docs](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/sorceress) [![Gitter](https://badges.gitter.im/sorceress-rs/community.svg)](https://gitter.im/sorceress-rs/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![built with nix](https://builtwithnix.org/badge.svg)](https://builtwithnix.org) [![Crates.io](https://img.shields.io/crates/v/sorceress.svg?style=flat-square)](https://crates.io/crates/sorceress) [![docs.rs docs](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/sorceress) [![Gitter](https://badges.gitter.im/sorceress-rs/community.svg)](https://gitter.im/sorceress-rs/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 A Rust environment for sound synthesis and algorithmic composition.
 
@@ -30,7 +30,7 @@ There are projects in many other programming languages for interacting with Supe
 
 This example plays a sine wave at 220 Hz for 1 second:
 
-```*rust
+```rust
 use anyhow::Result;
 use sorceress::{
     server::{self, Server},
