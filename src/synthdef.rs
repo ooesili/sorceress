@@ -278,7 +278,7 @@ impl From<usize> for Value {
 }
 
 fn bin_op_ugen(special_index: i16, lhs: Value, rhs: Value) -> Value {
-    let inputs = vec![UgenInput::Simple(lhs), UgenInput::Simple(rhs)];
+    let inputs = vec![UGenInput::Simple(lhs), UGenInput::Simple(rhs)];
     expand_inputs_with(inputs, &mut |inputs: Vec<Scalar>| {
         let rate = inputs
             .iter()
@@ -346,17 +346,16 @@ where
 }
 
 #[derive(Debug, PartialEq, Clone)]
-// TODO rename to UGenInput with big G
-pub(crate) enum UgenInput {
+pub(crate) enum UGenInput {
     Simple(Value),
     Multi(Value),
 }
 
-impl UgenInput {
+impl UGenInput {
     fn expand(self) -> Vec<VecTree<Scalar>> {
         match self {
-            UgenInput::Simple(Value(value)) => vec![value],
-            UgenInput::Multi(Value(value)) => match value {
+            UGenInput::Simple(Value(value)) => vec![value],
+            UGenInput::Multi(Value(value)) => match value {
                 VecTree::Leaf(expanded_value) => vec![VecTree::Leaf(expanded_value)],
                 VecTree::Branch(xs) => xs,
             },
@@ -404,15 +403,15 @@ where
     }
 }
 
-fn expand_inputs_with<F>(inputs: Vec<UgenInput>, f: &mut F) -> Value
+fn expand_inputs_with<F>(inputs: Vec<UGenInput>, f: &mut F) -> Value
 where
     F: FnMut(Vec<Scalar>) -> VecTree<Scalar>,
 {
-    Value(mutlichannel_expand(inputs, UgenInput::expand).flat_map(f))
+    Value(mutlichannel_expand(inputs, UGenInput::expand).flat_map(f))
 }
 
-impl From<UGenSpec<UgenInput>> for Value {
-    fn from(ugen_spec: UGenSpec<UgenInput>) -> Value {
+impl From<UGenSpec<UGenInput>> for Value {
+    fn from(ugen_spec: UGenSpec<UGenInput>) -> Value {
         let name = ugen_spec.name;
         let rate = ugen_spec.rate;
         let special_index = ugen_spec.special_index;

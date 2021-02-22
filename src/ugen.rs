@@ -22,7 +22,7 @@
 
 pub mod envelope;
 
-use crate::synthdef::{DoneAction, IntoValue, Rate, Scalar, UGenSpec, UgenInput, Value};
+use crate::synthdef::{DoneAction, IntoValue, Rate, Scalar, UGenInput, UGenSpec, Value};
 use crate::vectree::VecTree;
 use envelope::Env;
 
@@ -49,10 +49,10 @@ macro_rules! ugen_rate_constructor {
 
 macro_rules! ugen_set_value {
     ( $spec:ident, $ugen:ident, multi, $input:ident ) => {
-        $spec.inputs.push(UgenInput::Multi($ugen.$input));
+        $spec.inputs.push(UGenInput::Multi($ugen.$input));
     };
     ( $spec:ident, $ugen:ident, $t:ty, $input:ident ) => {
-        $spec.inputs.push(UgenInput::Simple($ugen.$input));
+        $spec.inputs.push(UGenInput::Simple($ugen.$input));
     };
 }
 
@@ -227,7 +227,7 @@ impl From<Control> for Value {
             name: "Control".to_owned(),
             rate: ugen.rate,
             special_index: 0,
-            inputs: ugen.values.into_iter().map(UgenInput::Simple).collect(),
+            inputs: ugen.values.into_iter().map(UGenInput::Simple).collect(),
             outputs: vec![Rate::Audio],
         }
         .into()
@@ -736,13 +736,13 @@ impl From<EnvGen> for Value {
             outputs: vec![ugen.rate],
         };
 
-        spec.inputs.push(UgenInput::Simple(ugen.gate));
-        spec.inputs.push(UgenInput::Simple(ugen.level_scale));
-        spec.inputs.push(UgenInput::Simple(ugen.level_bias));
-        spec.inputs.push(UgenInput::Simple(ugen.time_scale));
-        spec.inputs.push(UgenInput::Simple(ugen.done_action.into()));
+        spec.inputs.push(UGenInput::Simple(ugen.gate));
+        spec.inputs.push(UGenInput::Simple(ugen.level_scale));
+        spec.inputs.push(UGenInput::Simple(ugen.level_bias));
+        spec.inputs.push(UGenInput::Simple(ugen.time_scale));
+        spec.inputs.push(UGenInput::Simple(ugen.done_action.into()));
         for value in ugen.envelope.into_values() {
-            spec.inputs.push(UgenInput::Simple(value));
+            spec.inputs.push(UGenInput::Simple(value));
         }
         spec.into()
     }
@@ -837,12 +837,12 @@ impl From<PlayBuf> for Value {
             outputs: vec![ugen.ugen_rate; ugen.number_of_channels],
         };
 
-        spec.inputs.push(UgenInput::Simple(ugen.bufnum));
-        spec.inputs.push(UgenInput::Simple(ugen.rate));
-        spec.inputs.push(UgenInput::Simple(ugen.trigger));
-        spec.inputs.push(UgenInput::Simple(ugen.start_pos));
-        spec.inputs.push(UgenInput::Simple(ugen.loop_buffer));
-        spec.inputs.push(UgenInput::Simple(ugen.done_action.into()));
+        spec.inputs.push(UGenInput::Simple(ugen.bufnum));
+        spec.inputs.push(UGenInput::Simple(ugen.rate));
+        spec.inputs.push(UGenInput::Simple(ugen.trigger));
+        spec.inputs.push(UGenInput::Simple(ugen.start_pos));
+        spec.inputs.push(UGenInput::Simple(ugen.loop_buffer));
+        spec.inputs.push(UGenInput::Simple(ugen.done_action.into()));
         spec.into()
     }
 }
@@ -963,8 +963,8 @@ impl From<DiskIn> for Value {
             outputs: vec![Rate::Audio; ugen.number_of_channels],
         };
 
-        spec.inputs.push(UgenInput::Simple(ugen.buffer_number));
-        spec.inputs.push(UgenInput::Simple(ugen.loop_buffer));
+        spec.inputs.push(UGenInput::Simple(ugen.buffer_number));
+        spec.inputs.push(UGenInput::Simple(ugen.loop_buffer));
         spec.into()
     }
 }
