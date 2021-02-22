@@ -2,6 +2,12 @@
 name = "sorceress"
 version = "0.1.0"
 authors = ["Wesley Merkel <ooesili@gmail.com>"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/ooesili/sorceress"
+readme = "README.md"
+description = "A Rust environment for making music and sounds with SuperCollider."
+keywords = ["audio", "bindings", "creative", "music", "supercollider"]
+categories = ["api-bindings", "multimedia::audio"]
 edition = "2018"
 
 [dependencies]
