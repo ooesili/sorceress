@@ -97,7 +97,7 @@ macro_rules! ugen {
             fn new_with_rate(rate: Rate) -> Self {
                 Self{
                     rate,
-                    $( $input: $default_value.into(), )*
+                    $( $input: $default_value.into_value(), )*
                 }
             }
 
@@ -105,26 +105,26 @@ macro_rules! ugen {
 
             $(
                 $(#[$input_meta])*
-                pub fn $input(mut self, value: impl Into<Value>) -> Self {
-                    self.$input = value.into();
+                pub fn $input(mut self, value: impl Input) -> Self {
+                    self.$input = value.into_value();
                     self
                 }
             )*
         }
 
-        impl From<$name> for Value {
-            fn from(mut _ugen: $name) -> Self {
+        impl Input for $name {
+            fn into_value(self) -> Value {
                 let mut _spec = UGenSpec{
                     name: stringify!($name).to_owned(),
-                    rate: _ugen.rate,
+                    rate: self.rate,
                     special_index: 0,
                     inputs: vec![],
-                    outputs: vec![_ugen.rate],
+                    outputs: vec![self.rate],
                 };
 
-                $( ugen_set_value!(_spec, _ugen, $type, $input); )*
-                $( ugen_set_option!(_spec, _ugen, $option, $option_value); )*
-                _spec.into()
+                $( ugen_set_value!(_spec, self, $type, $input); )*
+                $( ugen_set_option!(_spec, self, $option, $option_value); )*
+                _spec.into_value()
             }
         }
     };
@@ -205,32 +205,32 @@ pub struct Control {
 
 impl Control {
     /// Create a UGen that calculates samples at control rate.
-    pub fn kr<T: Into<Value>>(values: impl IntoIterator<Item = T>) -> Control {
+    pub fn kr<T: Input>(values: impl IntoIterator<Item = T>) -> Control {
         Control {
             rate: Rate::Control,
-            values: values.into_iter().map(T::into).collect(),
+            values: values.into_iter().map(Input::into_value).collect(),
         }
     }
 
     /// Create a UGen that calculates samples at initialization only.
-    pub fn ir<T: Into<Value>>(values: impl IntoIterator<Item = T>) -> Control {
+    pub fn ir<T: Input>(values: impl IntoIterator<Item = T>) -> Control {
         Control {
             rate: Rate::Scalar,
-            values: values.into_iter().map(T::into).collect(),
+            values: values.into_iter().map(Input::into_value).collect(),
         }
     }
 }
 
-impl From<Control> for Value {
-    fn from(ugen: Control) -> Value {
+impl Input for Control {
+    fn into_value(self) -> Value {
         UGenSpec {
             name: "Control".to_owned(),
-            rate: ugen.rate,
+            rate: self.rate,
             special_index: 0,
-            inputs: ugen.values.into_iter().map(UGenInput::Simple).collect(),
+            inputs: self.values.into_iter().map(UGenInput::Simple).collect(),
             outputs: vec![Rate::Audio],
         }
-        .into()
+        .into_value()
     }
 }
 
@@ -590,8 +590,8 @@ ugen! {
 macro_rules! value_setter {
     ( $(#[$meta:meta])* $field:ident ) => {
         $(#[$meta])*
-        pub fn $field(mut self, value: impl Into<Value>) -> Self {
-            self.$field = value.into();
+        pub fn $field(mut self, value: impl Input) -> Self {
+            self.$field = value.into_value();
             self
         }
     };
@@ -688,16 +688,16 @@ impl In {
     }
 }
 
-impl From<In> for Value {
-    fn from(ugen: In) -> Value {
+impl Input for In {
+    fn into_value(self) -> Value {
         UGenSpec {
             name: "In".into(),
-            rate: ugen.rate,
+            rate: self.rate,
             special_index: 0,
-            inputs: vec![UGenInput::Simple(ugen.bus)],
-            outputs: vec![ugen.rate; ugen.number_of_channels],
+            inputs: vec![UGenInput::Simple(self.bus)],
+            outputs: vec![self.rate; self.number_of_channels],
         }
-        .into()
+        .into_value()
     }
 }
 
@@ -731,10 +731,10 @@ impl EnvGen {
         EnvGen {
             rate,
             envelope: Env::default(),
-            gate: 1.into(),
-            level_scale: 1.into(),
-            level_bias: 0.into(),
-            time_scale: 1.into(),
+            gate: 1.into_value(),
+            level_scale: 1.into_value(),
+            level_bias: 0.into_value(),
+            time_scale: 1.into_value(),
             done_action: DoneAction::None,
         }
     }
@@ -749,72 +749,71 @@ impl EnvGen {
         self
     }
 
-    /// Triggers the envelope and holds it open while > 0.
-    ///
-    /// If the [`Env`](envelope::Env) is fixed-length (e.g.  [`Env:linen`](envelope::Env:linen),
-    /// [`Env::perc`](envelope::Env::perc)), the `gate` argument is used as a simple trigger. If it
-    /// is an sustaining envelope (e.g.  [`Env::adsr`](envelope::Env::adsr),
-    /// [`Env::asr`](envelope::Env::asr)), the envelope is held open until the gate becomes 0, at
-    /// which point is released.
-    ///
-    /// If `gate` < 0, force release with time -1.0 - gate. See Forced release below.
-    pub fn gate(mut self, value: impl Into<Value>) -> EnvGen {
-        self.gate = value.into();
-        self
+    value_setter! {
+        /// Triggers the envelope and holds it open while > 0.
+        ///
+        /// If the [`Env`](envelope::Env) is fixed-length (e.g.
+        /// [`Env:linen`](envelope::Env:linen), [`Env::perc`](envelope::Env::perc)), the `gate`
+        /// argument is used as a simple trigger. If it is an sustaining envelope (e.g.
+        /// [`Env::adsr`](envelope::Env::adsr), [`Env::asr`](envelope::Env::asr)), the envelope is
+        /// held open until the gate becomes 0, at which point is released.
+        ///
+        /// If `gate` < 0, force release with time -1.0 - gate. See Forced release below.
+        gate
     }
 
-    /// The levels of the breakpoints are multiplied by this value
-    ///
-    /// This value can be modulated, but is only sampled at the start of a new envelope segment.
-    pub fn level_scale(mut self, value: impl Into<Value>) -> EnvGen {
-        self.level_scale = value.into();
-        self
+    value_setter! {
+        /// The levels of the breakpoints are multiplied by this value
+        ///
+        /// This value can be modulated, but is only sampled at the start of a new envelope
+        /// segment.
+        level_scale
     }
 
-    /// This value is added as an offset to the levels of the breakpoints.
-    ///
-    /// This value can be modulated, but is only sampled at the start of a new envelope segment.
-    pub fn level_bias(mut self, value: impl Into<Value>) -> EnvGen {
-        self.level_bias = value.into();
-        self
+    value_setter! {
+        /// This value is added as an offset to the levels of the breakpoints.
+        ///
+        /// This value can be modulated, but is only sampled at the start of a new envelope
+        /// segment.
+        level_bias
     }
 
-    /// The durations of the segments are multiplied by this value.
-    ///
-    /// This value can be modulated, but is only sampled at the start of a new envelope segment.
-    pub fn time_scale(mut self, value: impl Into<Value>) -> EnvGen {
-        self.time_scale = value.into();
-        self
+    value_setter! {
+        /// The durations of the segments are multiplied by this value.
+        ///
+        /// This value can be modulated, but is only sampled at the start of a new envelope
+        /// segment.
+        time_scale
     }
 
-    /// An action to be executed when the env is finished playing.
-    ///
-    /// This can be used to free the enclosing synth, etc. See [`DoneAction`] for more detail.
-    pub fn done_action(mut self, done_action: DoneAction) -> EnvGen {
-        self.done_action = done_action;
-        self
+    simple_setter! {
+        /// An action to be executed when the env is finished playing.
+        ///
+        /// This can be used to free the enclosing synth, etc. See [`DoneAction`] for more detail.
+        done_action: DoneAction
     }
 }
 
-impl From<EnvGen> for Value {
-    fn from(ugen: EnvGen) -> Value {
+impl Input for EnvGen {
+    fn into_value(self) -> Value {
         let mut spec = UGenSpec {
             name: "EnvGen".into(),
-            rate: ugen.rate,
+            rate: self.rate,
             special_index: 0,
             inputs: vec![],
-            outputs: vec![ugen.rate],
+            outputs: vec![self.rate],
         };
 
-        spec.inputs.push(UGenInput::Simple(ugen.gate));
-        spec.inputs.push(UGenInput::Simple(ugen.level_scale));
-        spec.inputs.push(UGenInput::Simple(ugen.level_bias));
-        spec.inputs.push(UGenInput::Simple(ugen.time_scale));
-        spec.inputs.push(UGenInput::Simple(ugen.done_action.into()));
-        for value in ugen.envelope.into_values() {
+        spec.inputs.push(UGenInput::Simple(self.gate));
+        spec.inputs.push(UGenInput::Simple(self.level_scale));
+        spec.inputs.push(UGenInput::Simple(self.level_bias));
+        spec.inputs.push(UGenInput::Simple(self.time_scale));
+        spec.inputs
+            .push(UGenInput::Simple(self.done_action.into_value()));
+        for value in self.envelope.into_values() {
             spec.inputs.push(UGenInput::Simple(value));
         }
-        spec.into()
+        spec.into_value()
     }
 }
 
@@ -854,11 +853,11 @@ impl PlayBuf {
             ugen_rate: rate,
             number_of_channels,
 
-            bufnum: 0.0.into(),
-            rate: 1.0.into(),
-            trigger: 1.0.into(),
-            start_pos: 0.0.into(),
-            loop_buffer: 0.0.into(),
+            bufnum: 0.0.into_value(),
+            rate: 1.0.into_value(),
+            trigger: 1.0.into_value(),
+            start_pos: 0.0.into_value(),
+            loop_buffer: 0.0.into_value(),
             done_action: DoneAction::None,
         }
     }
@@ -897,23 +896,24 @@ impl PlayBuf {
     }
 }
 
-impl From<PlayBuf> for Value {
-    fn from(ugen: PlayBuf) -> Self {
+impl Input for PlayBuf {
+    fn into_value(self) -> Value {
         let mut spec = UGenSpec {
             name: "PlayBuf".into(),
-            rate: ugen.ugen_rate,
+            rate: self.ugen_rate,
             special_index: 0,
             inputs: vec![],
-            outputs: vec![ugen.ugen_rate; ugen.number_of_channels],
+            outputs: vec![self.ugen_rate; self.number_of_channels],
         };
 
-        spec.inputs.push(UGenInput::Simple(ugen.bufnum));
-        spec.inputs.push(UGenInput::Simple(ugen.rate));
-        spec.inputs.push(UGenInput::Simple(ugen.trigger));
-        spec.inputs.push(UGenInput::Simple(ugen.start_pos));
-        spec.inputs.push(UGenInput::Simple(ugen.loop_buffer));
-        spec.inputs.push(UGenInput::Simple(ugen.done_action.into()));
-        spec.into()
+        spec.inputs.push(UGenInput::Simple(self.bufnum));
+        spec.inputs.push(UGenInput::Simple(self.rate));
+        spec.inputs.push(UGenInput::Simple(self.trigger));
+        spec.inputs.push(UGenInput::Simple(self.start_pos));
+        spec.inputs.push(UGenInput::Simple(self.loop_buffer));
+        spec.inputs
+            .push(UGenInput::Simple(self.done_action.into_value()));
+        spec.into_value()
     }
 }
 
@@ -929,7 +929,9 @@ pub struct SoundIn {
 impl SoundIn {
     /// Create a UGen that calculates samples at audio rate.
     pub fn ar() -> Self {
-        Self { bus: 0.into() }
+        Self {
+            bus: 0.into_value(),
+        }
     }
 
     value_setter! {
@@ -939,12 +941,12 @@ impl SoundIn {
     }
 }
 
-impl From<SoundIn> for Value {
-    fn from(ugen: SoundIn) -> Self {
+impl Input for SoundIn {
+    fn into_value(self) -> Value {
         let channel_offest = NumOutputBuses::ir();
-        match ugen.bus.0 {
+        match self.bus.0 {
             VecTree::Leaf(_) => In::ar()
-                .bus(channel_offest.add(ugen.bus))
+                .bus(channel_offest.add(self.bus))
                 .number_of_channels(1)
                 .into_value(),
             VecTree::Branch(ref buses) => {
@@ -983,7 +985,7 @@ impl From<SoundIn> for Value {
                         .into_value()
                 } else {
                     In::ar()
-                        .bus(channel_offest.add(ugen.bus))
+                        .bus(channel_offest.add(self.bus))
                         .number_of_channels(1)
                         .into_value()
                 }
@@ -1009,10 +1011,10 @@ impl DiskIn {
     /// * `number_of_channels` - The number of channels. This must match the number of channels in
     ///   the buffer.
     /// * `buffer_number` - The number of the buffer to use when playing the file.
-    pub fn ar(number_of_channels: usize, buffer_number: impl Into<Value>) -> Self {
+    pub fn ar(number_of_channels: usize, buffer_number: impl Input) -> Self {
         Self {
             number_of_channels,
-            buffer_number: buffer_number.into(),
+            buffer_number: buffer_number.into_value(),
             loop_buffer: 0.into_value(),
         }
     }
@@ -1023,18 +1025,18 @@ impl DiskIn {
     }
 }
 
-impl From<DiskIn> for Value {
-    fn from(ugen: DiskIn) -> Self {
+impl Input for DiskIn {
+    fn into_value(self) -> Value {
         let mut spec = UGenSpec {
             name: "DiskIn".into(),
             rate: Rate::Audio,
             special_index: 0,
             inputs: Vec::with_capacity(2),
-            outputs: vec![Rate::Audio; ugen.number_of_channels],
+            outputs: vec![Rate::Audio; self.number_of_channels],
         };
 
-        spec.inputs.push(UGenInput::Simple(ugen.buffer_number));
-        spec.inputs.push(UGenInput::Simple(ugen.loop_buffer));
-        spec.into()
+        spec.inputs.push(UGenInput::Simple(self.buffer_number));
+        spec.inputs.push(UGenInput::Simple(self.loop_buffer));
+        spec.into_value()
     }
 }

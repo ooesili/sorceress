@@ -88,9 +88,9 @@ impl Env {
     pub fn levels<I, T>(mut self, levels: I) -> Env
     where
         I: IntoIterator<Item = T>,
-        T: Into<Value>,
+        T: Input,
     {
-        self.levels = levels.into_iter().map(T::into).collect();
+        self.levels = levels.into_iter().map(Input::into_value).collect();
         self
     }
 
@@ -102,9 +102,9 @@ impl Env {
     pub fn times<I, T>(mut self, times: I) -> Env
     where
         I: IntoIterator<Item = T>,
-        T: Into<Value>,
+        T: Input,
     {
-        self.times = times.into_iter().map(T::into).collect();
+        self.times = times.into_iter().map(Input::into_value).collect();
         self
     }
 
@@ -194,7 +194,7 @@ impl Env {
         let mut values = Vec::with_capacity((size + 1) * 4);
         let mut levels = self.levels.into_iter();
         values.push(levels.next().unwrap());
-        values.push((size as i32).into());
+        values.push((size as i32).into_value());
         values.push(node_index_to_value(self.release_node));
         values.push(node_index_to_value(self.loop_node));
 
@@ -245,7 +245,10 @@ impl Default for Env {
 }
 
 fn node_index_to_value(index: Option<usize>) -> Value {
-    index.map(|index| index as f32).unwrap_or(-99.0).into()
+    index
+        .map(|index| index as f32)
+        .unwrap_or(-99.0)
+        .into_value()
 }
 
 /// The curve of an envelope segment.
@@ -309,13 +312,13 @@ impl From<Curve> for CurveInput {
 
 impl From<f32> for CurveInput {
     fn from(curve: f32) -> CurveInput {
-        Curve::Curve(curve.into()).into()
+        Curve::Curve(curve.into_value()).into()
     }
 }
 
 impl From<i32> for CurveInput {
     fn from(curve: i32) -> CurveInput {
-        Curve::Curve(curve.into()).into()
+        Curve::Curve(curve.into_value()).into()
     }
 }
 
@@ -370,7 +373,7 @@ mod tests {
     fn default_value_should_match_sclang() {
         let expected = vec![0, 2, -99, -99, 1, 1, 1, 0, 0, 1, 1, 0]
             .into_iter()
-            .map(|x| Value::from(x))
+            .map(|x| x.into_value())
             .collect::<Vec<_>>();
         assert_eq!(expected, Env::default().into_values());
     }
@@ -381,7 +384,7 @@ mod tests {
             0.0, 3.0, 2.0, -99.0, 1.0, 0.01, 5.0, -4.0, 0.5, 0.3, 5.0, -4.0, 0.0, 1.0, 5.0, -4.0,
         ]
         .into_iter()
-        .map(|x| Value::from(x))
+        .map(|x| x.into_value())
         .collect::<Vec<_>>();
         assert_eq!(expected, Env::adsr().into_values());
     }

@@ -61,10 +61,10 @@ impl SynthDef {
     /// The name given here is used when creating new synths after this synthdef definition has be
     /// registered with the server. This method does not register the synth definition with the
     /// SuperCollider server which must happen before synths can be created from it.
-    pub fn new(name: impl Into<String>, graph: impl Into<Value>) -> Self {
+    pub fn new(name: impl Into<String>, graph: impl Input) -> Self {
         Self {
             name: name.into(),
-            graph: graph.into().0,
+            graph: graph.into_value().0,
         }
     }
 
@@ -135,9 +135,9 @@ pub enum DoneAction {
     FreeSelfResumeNext = 15,
 }
 
-impl From<DoneAction> for Value {
-    fn from(done_action: DoneAction) -> Self {
-        (done_action as i32).into()
+impl Input for DoneAction {
+    fn into_value(self) -> Value {
+        (self as i32).into_value()
     }
 }
 
@@ -208,16 +208,16 @@ impl Parameter {
     }
 }
 
-impl From<Parameter> for Value {
-    fn from(parameter: Parameter) -> Self {
-        Value(VecTree::Leaf(Scalar::Parameter(parameter)))
+impl Input for Parameter {
+    fn into_value(self) -> Value {
+        Value(VecTree::Leaf(Scalar::Parameter(self)))
     }
 }
 
 /// A value in a UGen graph.
 ///
-/// Many different types can be converted into a `Value`, but there are only 3 general kinds of
-/// values:
+/// Many different types can be converted into a `Value` using the [`Input`] trait, but there are
+/// only 3 general kinds of values:
 ///
 /// * Constants
 /// * Parameters
@@ -256,21 +256,27 @@ impl Value {
     }
 }
 
-impl From<f32> for Value {
-    fn from(n: f32) -> Self {
-        Value(VecTree::Leaf(Scalar::Const(n)))
+impl Input for Value {
+    fn into_value(self) -> Value {
+        self
     }
 }
 
-impl From<i32> for Value {
-    fn from(n: i32) -> Self {
-        Value(VecTree::Leaf(Scalar::Const(n as f32)))
+impl Input for f32 {
+    fn into_value(self) -> Value {
+        Value(VecTree::Leaf(Scalar::Const(self)))
     }
 }
 
-impl From<usize> for Value {
-    fn from(n: usize) -> Self {
-        Value(VecTree::Leaf(Scalar::Const(n as f32)))
+impl Input for i32 {
+    fn into_value(self) -> Value {
+        Value(VecTree::Leaf(Scalar::Const(self as f32)))
+    }
+}
+
+impl Input for usize {
+    fn into_value(self) -> Value {
+        Value(VecTree::Leaf(Scalar::Const(self as f32)))
     }
 }
 
@@ -415,22 +421,13 @@ pub trait Input: Sized {
     // TODO: add all unary operators
 }
 
-impl<T> Input for T
+impl<T> Input for Vec<T>
 where
-    T: Into<Value>,
+    T: Input,
 {
     fn into_value(self) -> Value {
-        self.into()
-    }
-}
-
-impl<T> From<Vec<T>> for Value
-where
-    T: Into<Value>,
-{
-    fn from(channels: Vec<T>) -> Self {
         Value(VecTree::Branch(
-            channels.into_iter().map(|value| value.into().0).collect(),
+            self.into_iter().map(|value| value.into_value().0).collect(),
         ))
     }
 }
@@ -500,14 +497,14 @@ where
     Value(mutlichannel_expand(inputs, UGenInput::expand).flat_map(f))
 }
 
-impl From<UGenSpec<UGenInput>> for Value {
-    fn from(ugen_spec: UGenSpec<UGenInput>) -> Value {
-        let name = ugen_spec.name;
-        let rate = ugen_spec.rate;
-        let special_index = ugen_spec.special_index;
-        let outputs = ugen_spec.outputs;
+impl Input for UGenSpec<UGenInput> {
+    fn into_value(self) -> Value {
+        let name = self.name;
+        let rate = self.rate;
+        let special_index = self.special_index;
+        let outputs = self.outputs;
 
-        expand_inputs_with(ugen_spec.inputs, &mut |inputs| {
+        expand_inputs_with(self.inputs, &mut |inputs| {
             let ugen_spec = Arc::new(UGenSpec {
                 name: name.clone(),
                 rate,
