@@ -480,28 +480,55 @@ ugen! {
     /// # Examples
     ///
     /// ```no_run
-    /// use sorceress::server::{self, Result, Server};
-    /// use std::{iter, thread, time::Duration};
+    /// use sorceress::{
+    ///     server::{self, Server},
+    ///     synthdef::{encoder::encode_synth_defs, Input, SynthDef},
+    ///     ugen,
+    /// };
+    /// use std::{thread, time::Duration};
     ///
-    /// # fn main() -> Result<()> {
+    /// # fn main() -> anyhow::Result<()> {
+    /// // Declared here because we refer to it multiple times.
+    /// let buffer_number = 0;
+    ///
     /// // Connect to a running SuperCollider server.
     /// let server = Server::connect("127.0.0.1:57110")?;
     ///
-    // TODO: create and load synth definitions here
-    //
+    /// // This generates an interesting sound.
+    /// let bubbles = SynthDef::new("bubbles", {
+    ///     let glissando_function = ugen::LFSaw::kr()
+    ///         .freq(0.4)
+    ///         .madd(24, ugen::LFSaw::kr().freq(vec![8.0, 7.23]).madd(3, 80))
+    ///         .midicps();
+    ///     let echoing_sine_wave = ugen::CombN::ar()
+    ///         .input(ugen::SinOsc::ar().freq(glissando_function).mul(0.04))
+    ///         .decay_time(4);
+    ///     ugen::Out::ar().bus(0).channels(echoing_sine_wave)
+    /// });
+    ///
+    /// // This will record the audio signal to disk.
+    /// let diskout = SynthDef::new("diskout", {
+    ///     ugen::DiskOut::ar()
+    ///         .bufnum(buffer_number)
+    ///         .channels(ugen::In::ar().bus(0).number_of_channels(2))
+    /// });
+    ///
+    /// // Send the synth definitions to the server.
+    /// let encoded_synthdef = encode_synth_defs(vec![bubbles, diskout])?;
+    /// server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
+    ///
     /// // Start something to record.
     /// let source_synth_id = 2003;
-    /// server.send(server::SynthNew::new("bubbles", 1, iter::empty()).synth_id(source_synth_id))?;
+    /// server.send(server::SynthNew::new("bubbles", 1, vec![]).synth_id(source_synth_id))?;
     ///
     /// // Allocate a buffer for disk I/O.
-    /// let buffer_number = 0;
     /// server.send_sync(server::BufferAllocate::new(buffer_number, 65536).number_of_channels(2))?;
     ///
     /// // Create an output file for this buffer and leave it open.
     /// server.send_sync(
     ///     server::BufferWrite::new(
     ///         buffer_number,
-    ///         "diskout-test.wav",
+    ///         "diskout-test.aiff",
     ///         server::HeaderFormat::Aiff,
     ///         server::SampleFormat::Int16,
     ///     )
@@ -513,7 +540,7 @@ ugen! {
     /// let recording_synth_id = 2004;
     /// server.send({
     ///     let controls = vec![server::Control::new("bufnum", buffer_number)];
-    ///     server::SynthNew::new("help-Diskout", source_synth_id, controls)
+    ///     server::SynthNew::new("diskout", source_synth_id, controls)
     ///         .synth_id(recording_synth_id)
     ///         .add_action(server::AddAction::AfterNode)
     /// })?;
@@ -522,9 +549,9 @@ ugen! {
     /// thread::sleep(Duration::from_secs(5));
     ///
     /// // Stop recording.
-    /// server.send(server::NodeFree::new(iter::once(recording_synth_id)))?;
+    /// server.send(server::NodeFree::new(vec![recording_synth_id]))?;
     /// // Stop the audio source.
-    /// server.send(server::NodeFree::new(iter::once(source_synth_id)))?;
+    /// server.send(server::NodeFree::new(vec![source_synth_id]))?;
     ///
     /// // Close the file and free the buffer's memory.
     /// server.send_sync(server::BufferClose::new(buffer_number))?;
@@ -534,66 +561,15 @@ ugen! {
     /// ```
     DiskOut[ar] {
         inputs: {
+            /// The number of the buffer to write to.
+            ///
+            /// The buffer must have been prepared to write to a file using
+            /// [`BufferWrite`](crate::server::BufferWrite) with
+            /// [`leave_file_open`](crate::server::BufferWrite::leave_file_open) enabled.
             bufnum: f32 = 0,
-            channels: multi = 0
-        },
-        options: {
-            num_outputs: 1
-        }
-    }
-}
 
-ugen! {
-    /// Read signals from an audio or control bus.
-    ///
-    /// [`In::ar`] and [`In::kr`] read signals from audio and control buses, respectively. (See the
-    /// [Buses] chapter of the [Getting Started] tutorial series for details on buses.)
-    ///
-    /// `In::ar` and `In::kr` behave slightly differently with respect to signals left on the bus
-    /// in the previous calculation cycle.
-    ///
-    /// `In::ar` can access audio signals that were generated in the current calculation cycle by
-    /// Synth nodes located earlier in the node tree (see [Order of execution]). It does not read
-    /// signals left on an audio bus from the previous calculation cycle. If synth A reads from
-    /// audio bus 0 and synth B writes to audio bus 0, and synth A is earlier than synth B, In.ar
-    /// in synth A will read 0's (silence). This is to prevent accidental feedback. [`InFeedback`]
-    /// supports audio signal feedback.
-    ///
-    /// `In::kr` is for control buses. Control signals may be generated by Synth nodes within the
-    /// server, or they may be set by the client and expected to hold steady. Therefore, `In::kr`
-    /// does not distinguish between "new" and "old" data: it will always read the current value on
-    /// the bus, whether it was generated earlier in this calculation cycle, left over from the
-    /// last one, or set by the client.
-    ///
-    // TODO: figure how we want to manage buses and recommend it here
-    //
-    // Note that using the Bus class to allocate a multichannel bus simply reserves a series of
-    // adjacent bus indices with the Server object's bus allocators. abus.index simply returns the
-    // first of those indices.
-    //
-    // When using a bus with an `In` or [`Out`] UGen there is nothing to stop you from reading to
-    // or writing from a larger range, or from hardcoding to a bus that has been allocated. You are
-    // responsible for making sure that the number of channels match and that there are no
-    // conflicts. See the [Server Architecture] and Bus helpfiles for more information on buses and
-    // how they are used.
-    //
-    /// The hardware input buses begin just after the hardware output buses and can be read from
-    /// using `In::ar` (See [Server Architecture] for more details). The number of hardware input
-    /// and output buses can vary depending on your Server's options. For a convenient wrapper
-    /// class which deals with this issue see [`SoundIn`].
-    ///
-    /// [Buses]: https://doc.sccode.org/Tutorials/Getting-Started/11-Buses.html
-    /// [Getting Started]: https://doc.sccode.org/Tutorials/Getting-Started/00-Getting-Started-With-SC.html
-    /// [Order of execution]: https://doc.sccode.org/Guides/Order-of-execution.html
-    /// [Server Architecture]: https://doc.sccode.org/Reference/Server-Architecture.html
-    In[ar, kr] {
-        inputs: {
-            /// The index of the bus to read in from.
-            bus: f32 = 0,
-            /// The number of channels (i.e. adjacent buses) to read in. You cannot modulate this
-            /// number by assigning it to an parameter in a synth definition.
-            // TODO: make this take an i32 only instead of an `impl Into<Value>`
-            number_of_channels: f32 = 1
+            /// A list of channels to write to the file.
+            channels: multi = 0
         },
         options: {
             num_outputs: 1
@@ -629,6 +605,100 @@ macro_rules! simple_setter {
             self
         }
     };
+}
+
+/// Read signals from an audio or control bus.
+///
+/// [`In::ar`] and [`In::kr`] read signals from audio and control buses, respectively. (See the
+/// [Buses] chapter of the [Getting Started] tutorial series for details on buses.)
+///
+/// `In::ar` and `In::kr` behave slightly differently with respect to signals left on the bus in
+/// the previous calculation cycle.
+///
+/// `In::ar` can access audio signals that were generated in the current calculation cycle by Synth
+/// nodes located earlier in the node tree (see [Order of execution]). It does not read signals
+/// left on an audio bus from the previous calculation cycle. If synth A reads from audio bus 0 and
+/// synth B writes to audio bus 0, and synth A is earlier than synth B, In.ar in synth A will read
+/// 0's (silence). This is to prevent accidental feedback. [`InFeedback`] supports audio signal
+/// feedback.
+///
+/// `In::kr` is for control buses. Control signals may be generated by Synth nodes within the
+/// server, or they may be set by the client and expected to hold steady. Therefore, `In::kr` does
+/// not distinguish between "new" and "old" data: it will always read the current value on the bus,
+/// whether it was generated earlier in this calculation cycle, left over from the last one, or set
+/// by the client.
+///
+// TODO: figure how we want to manage buses and recommend it here
+//
+// Note that using the Bus class to allocate a multichannel bus simply reserves a series of
+// adjacent bus indices with the Server object's bus allocators. abus.index simply returns the
+// first of those indices.
+//
+// When using a bus with an `In` or [`Out`] UGen there is nothing to stop you from reading to or
+// writing from a larger range, or from hardcoding to a bus that has been allocated. You are
+// responsible for making sure that the number of channels match and that there are no conflicts.
+// See the [Server Architecture] and Bus helpfiles for more information on buses and how they are
+// used.
+//
+/// The hardware input buses begin just after the hardware output buses and can be read from using
+/// `In::ar` (See [Server Architecture] for more details). The number of hardware input and output
+/// buses can vary depending on your Server's options. For a convenient wrapper class which deals
+/// with this issue see [`SoundIn`].
+///
+/// [Buses]: https://doc.sccode.org/Tutorials/Getting-Started/11-Buses.html
+/// [Getting Started]: https://doc.sccode.org/Tutorials/Getting-Started/00-Getting-Started-With-SC.html
+/// [Order of execution]: https://doc.sccode.org/Guides/Order-of-execution.html
+/// [Server Architecture]: https://doc.sccode.org/Reference/Server-Architecture.html
+pub struct In {
+    rate: Rate,
+    bus: Value,
+    number_of_channels: usize,
+}
+
+impl In {
+    /// Create a UGen that calculates samples at audio rate.
+    pub fn ar() -> In {
+        In::new(Rate::Audio)
+    }
+
+    /// Create a UGen that calculates samples at control rate.
+    pub fn kr() -> In {
+        In::new(Rate::Control)
+    }
+
+    fn new(rate: Rate) -> In {
+        In {
+            rate,
+            bus: 0.into_value(),
+            number_of_channels: 1,
+        }
+    }
+
+    value_setter! {
+        /// The index of the bus to read in from.
+        bus
+    }
+
+    simple_setter! {
+        /// The number of channels (i.e. adjacent buses) to read in.
+        ///
+        /// You cannot modulate this number by assigning it to an parameter in a synth definition.
+        /// Defaults to 1.
+        number_of_channels: usize
+    }
+}
+
+impl From<In> for Value {
+    fn from(ugen: In) -> Value {
+        UGenSpec {
+            name: "In".into(),
+            rate: ugen.rate,
+            special_index: 0,
+            inputs: vec![UGenInput::Simple(ugen.bus)],
+            outputs: vec![ugen.rate; ugen.number_of_channels],
+        }
+        .into()
+    }
 }
 
 /// An envelope generator.

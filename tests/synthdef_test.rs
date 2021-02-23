@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use sorceress::{
-    synthdef::{decoder::decode, encoder::encode_synth_defs, SynthDef},
+    synthdef::{decoder::decode, encoder::encode_synth_defs, Input, Parameter, SynthDef},
     ugen,
 };
 use std::{
@@ -30,6 +30,25 @@ fn test_synthdefs() {
             .channels(ugen::SinOsc::ar().freq(vec![440, 220])),
     ));
 
+    test_synthdefs.push(SynthDef::new("bubbles", {
+        let out = Parameter::new("out", 0.0);
+        let glissando_function = ugen::LFSaw::kr()
+            .freq(0.4)
+            .madd(24, ugen::LFSaw::kr().freq(vec![8.0, 7.23]).madd(3, 80))
+            .midicps();
+        let echoing_sine_wave = ugen::CombN::ar()
+            .input(ugen::SinOsc::ar().freq(glissando_function).mul(0.04))
+            .decay_time(4);
+        ugen::Out::ar().bus(out).channels(echoing_sine_wave)
+    }));
+
+    test_synthdefs.push(SynthDef::new("diskout", {
+        let buffer_number = Parameter::new("bufnum", 0.0);
+        ugen::DiskOut::ar()
+            .bufnum(buffer_number)
+            .channels(ugen::In::ar().bus(0).number_of_channels(2))
+    }));
+
     verify_synthdefs_against_fixtures(test_synthdefs)
 }
 
@@ -55,7 +74,7 @@ fn verify_synthdefs_against_fixtures(test_synthdefs: Vec<SynthDef>) {
             .ok_or_else(|| format!("no fixture synthdef named {}", name))
             .unwrap();
 
-        compare(&encoded_synthdef, fixture_synthdef);
+        compare(fixture_synthdef, &encoded_synthdef, &name);
     }
 }
 
@@ -88,9 +107,14 @@ fn load_fixture_synthdefs() -> HashMap<String, Vec<u8>> {
         .collect::<HashMap<_, _>>()
 }
 
-fn compare(lhs: &[u8], rhs: &[u8]) {
+fn compare(lhs: &[u8], rhs: &[u8], name: &str) {
     let format = |synthdef: &[u8]| denorm::SynthDefFile::new(&decode(synthdef).unwrap());
-    assert_eq!(format(&lhs), format(&rhs));
+    assert_eq!(
+        format(&lhs),
+        format(&rhs),
+        "comparing synth definitions for synthdef: {}",
+        name
+    );
 }
 
 fn temp_dir() -> TempDir {
@@ -101,7 +125,10 @@ mod denorm {
     //! A denormalized verison synth definition with more useful equality comparisons.
 
     use sorceress::synthdef::decoder;
-    use std::collections::HashMap;
+    use std::{
+        collections::{HashMap, HashSet},
+        hash::Hash,
+    };
 
     impl SynthDefFile {
         pub fn new(file: &decoder::SynthDefFile) -> SynthDefFile {
@@ -120,7 +147,7 @@ mod denorm {
     struct SynthDef {
         name: String,
         parameters: HashMap<String, usize>,
-        ugens: Vec<UGenSpec>,
+        ugens: HashSet<UGenSpec>,
         variants: HashMap<String, VariantSpec>,
     }
 
@@ -159,7 +186,7 @@ mod denorm {
         }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
     struct UGenSpec {
         class_name: String,
         rate: i8,
@@ -182,11 +209,11 @@ mod denorm {
                             index,
                             output_index,
                         } => Input::UGen {
-                            index,
+                            spec: UGenSpec::new(synthdef, &synthdef.ugens[index]),
                             output_index,
                         },
                         decoder::Input::Constant { index } => {
-                            Input::Constant(synthdef.constants[index])
+                            Input::Constant(synthdef.constants[index].to_string())
                         }
                     })
                     .collect(),
@@ -195,10 +222,10 @@ mod denorm {
         }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
     enum Input {
-        UGen { index: usize, output_index: usize },
-        Constant(f32),
+        UGen { spec: UGenSpec, output_index: usize },
+        Constant(String),
     }
 
     #[derive(Debug, PartialEq)]
