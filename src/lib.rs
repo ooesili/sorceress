@@ -66,7 +66,7 @@
 //! use anyhow::Result;
 //! use sorceress::{
 //!     server::{self, Control, Server},
-//!     synthdef::{encoder::encode_synth_defs, IntoValue, Parameter, SynthDef},
+//!     synthdef::{encoder::encode_synth_defs, Input, Parameter, SynthDef},
 //!     ugen,
 //! };
 //! use std::{thread::sleep, time::Duration};
@@ -83,7 +83,7 @@
 //!         let freq = Parameter::new("freq", 0.0);
 //!
 //!         // Creates a sine wave that oscillates between -7 and 7, 5 times per second.
-//!         let vibrato = ugen::SinOsc::ar().freq(5).into_value() * 7.into_value();
+//!         let vibrato = ugen::SinOsc::ar().freq(5).mul(7);
 //!
 //!         // Create and name the synth definition. We will use the name given here to refer
 //!         // to this synth definition in all server commands.
@@ -99,7 +99,7 @@
 //!                         // to create complex signal processing graphs. Here we are using
 //!                         // the vibrato SinOsc UGen defined above to slightly oscillate the
 //!                         // pitch of the sine wav we will actually hear.
-//!                         .input(freq.into_value() + vibrato),
+//!                         .input(freq.mul(vibrato)),
 //!                 ),
 //!         )
 //!     };

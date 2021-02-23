@@ -22,7 +22,7 @@
 
 pub mod envelope;
 
-use crate::synthdef::{DoneAction, IntoValue, Rate, Scalar, UGenInput, UGenSpec, Value};
+use crate::synthdef::{DoneAction, Input, Rate, Scalar, UGenInput, UGenSpec, Value};
 use crate::vectree::VecTree;
 use envelope::Env;
 
@@ -234,14 +234,6 @@ impl From<Control> for Value {
     }
 }
 
-// ugen! {
-//     Control[ar, kr] {
-//         inputs: {}
-//     }
-// }
-
-// TODO: add `.mul` and `.add` convenience functions
-
 ugen! {
     /// Band limited sawtooth wave generator.
     Saw[ar, kr] {
@@ -300,9 +292,14 @@ ugen! {
             input: f32 = 0.0,
 
             /// The maximum delay time in seconds. Used to initialize the delay buffer size.
+            ///
+            /// Defaults to 0.2.
             max_delay_time: f32 = 0.2,
 
             /// Delay time in seconds.
+            ///
+            /// Defaults to 0.2.
+
             delay_time: f32 = 0.2,
             /// Time for the echoes to decay by 60 decibels. If this time is negative, then the
             /// feedback coefficient will be negative, thus emphasizing only odd harmonics at an
@@ -314,6 +311,8 @@ ugen! {
             /// Infinite decay times are permitted. A decay time of [`f32::INFINITY`] leads to a
             /// feedback coefficient of 1, and a decay time of `-f32::INFINITY` leads to a feedback
             /// coefficient of -1.
+            ///
+            /// Defaults to 1.
             decay_time: f32 = 1.0
         }
     }
@@ -452,7 +451,8 @@ ugen! {
 ugen! {
     /// Record to a soundfile to disk. Uses a Buffer.
     ///
-    /// See [`RecordBuf`] for recording into a buffer in memory.
+    /// Returns the number of frames written to disk. See [`RecordBuf`] for recording into a buffer
+    /// in memory.
     ///
     /// # Disk recording procedure:
     ///
@@ -871,10 +871,10 @@ impl SoundIn {
 
 impl From<SoundIn> for Value {
     fn from(ugen: SoundIn) -> Self {
-        let channel_offest = NumOutputBuses::ir().into_value();
+        let channel_offest = NumOutputBuses::ir();
         match ugen.bus.0 {
             VecTree::Leaf(_) => In::ar()
-                .bus(channel_offest + ugen.bus)
+                .bus(channel_offest.add(ugen.bus))
                 .number_of_channels(1)
                 .into_value(),
             VecTree::Branch(ref buses) => {
@@ -908,12 +908,12 @@ impl From<SoundIn> for Value {
 
                 if is_consecutive {
                     In::ar()
-                        .bus(channel_offest + first_bus)
-                        .number_of_channels(number_of_channels as f32)
+                        .bus(channel_offest.add(first_bus))
+                        .number_of_channels(number_of_channels)
                         .into_value()
                 } else {
                     In::ar()
-                        .bus(channel_offest + ugen.bus)
+                        .bus(channel_offest.add(ugen.bus))
                         .number_of_channels(1)
                         .into_value()
                 }

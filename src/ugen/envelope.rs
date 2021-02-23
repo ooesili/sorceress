@@ -18,7 +18,7 @@
 //!
 //! [`Env`] is the focus of this module.
 use crate::{
-    synthdef::{IntoValue, Scalar, Value},
+    synthdef::{Input, Scalar, Value},
     vectree::VecTree,
 };
 

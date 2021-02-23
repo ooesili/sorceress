@@ -24,7 +24,7 @@
 //!
 //! ```
 //! use sorceress::{
-//!     synthdef::{IntoValue, Parameter, SynthDef, Value},
+//!     synthdef::{Input, Parameter, SynthDef, Value},
 //!     ugen::{Out, SinOsc},
 //! };
 //!
@@ -33,16 +33,13 @@
 //!     SynthDef::new(
 //!         "example",
 //!         Out::ar().channels(Value::from(
-//!             SinOsc::ar().freq(vec![freq.clone(), 2.0.into_value() * freq]),
+//!             SinOsc::ar().freq(vec![freq.clone(), freq.mul(2)]),
 //!         )),
 //!     )
 //! }
 //! ```
 use crate::vectree::VecTree;
-use std::{
-    ops::{Add, Div, Mul, Sub},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 pub mod decoder;
 pub mod encoder;
@@ -174,7 +171,7 @@ impl Scalar {
 /// # Examples
 /// ```
 /// use sorceress::{
-///     synthdef::{IntoValue, Parameter, SynthDef},
+///     synthdef::{Parameter, SynthDef},
 ///     ugen::{Out, Pan2, SinOsc},
 /// };
 ///
@@ -280,11 +277,7 @@ impl From<usize> for Value {
 fn bin_op_ugen(special_index: i16, lhs: Value, rhs: Value) -> Value {
     let inputs = vec![UGenInput::Simple(lhs), UGenInput::Simple(rhs)];
     expand_inputs_with(inputs, &mut |inputs: Vec<Scalar>| {
-        let rate = inputs
-            .iter()
-            .map(|input| input.rate())
-            .max()
-            .unwrap_or(Rate::Scalar);
+        let rate = input_rate(&inputs);
         VecTree::Leaf(Scalar::Ugen {
             output_index: 0,
             ugen_spec: Arc::new(UGenSpec {
@@ -298,39 +291,136 @@ fn bin_op_ugen(special_index: i16, lhs: Value, rhs: Value) -> Value {
     })
 }
 
-/// Adds a Value to another.
-impl Add<Value> for Value {
-    type Output = Value;
-
-    fn add(self, rhs: Value) -> Self::Output {
-        bin_op_ugen(0, self, rhs)
-    }
+fn mul_add(value: impl Input, mul: impl Input, add: impl Input) -> Value {
+    let inputs = vec![
+        UGenInput::Simple(value.into_value()),
+        UGenInput::Simple(mul.into_value()),
+        UGenInput::Simple(add.into_value()),
+    ];
+    expand_inputs_with(inputs, &mut |inputs: Vec<Scalar>| {
+        let rate = input_rate(&inputs);
+        VecTree::Leaf(Scalar::Ugen {
+            output_index: 0,
+            ugen_spec: Arc::new(UGenSpec {
+                name: "MulAdd".to_owned(),
+                rate,
+                special_index: 0,
+                inputs,
+                outputs: vec![rate],
+            }),
+        })
+    })
 }
 
-/// Subtracts a value from another.
-impl Sub<Value> for Value {
-    type Output = Value;
-
-    fn sub(self, rhs: Value) -> Self::Output {
-        bin_op_ugen(1, self, rhs)
-    }
+fn unary_op_ugen(special_index: i16, input: impl Input) -> Value {
+    let inputs = vec![UGenInput::Simple(input.into_value())];
+    expand_inputs_with(inputs, &mut |inputs: Vec<Scalar>| {
+        let rate = input_rate(&inputs);
+        VecTree::Leaf(Scalar::Ugen {
+            output_index: 0,
+            ugen_spec: Arc::new(UGenSpec {
+                name: "UnaryOpUGen".to_owned(),
+                rate,
+                special_index,
+                inputs,
+                outputs: vec![rate],
+            }),
+        })
+    })
 }
 
-/// Multiplies a Value by another.
-impl Mul<Value> for Value {
-    type Output = Value;
-
-    fn mul(self, rhs: Value) -> Self::Output {
-        bin_op_ugen(2, self, rhs)
-    }
+fn input_rate(inputs: &[Scalar]) -> Rate {
+    inputs
+        .into_iter()
+        .map(|input| input.rate())
+        .max()
+        .unwrap_or(Rate::Scalar)
 }
 
-/// Divides a Value by another.
-impl Div<Value> for Value {
-    type Output = Value;
+/// A trait for values that can be used in UGen graphs.
+///
+/// This trait is primarily used as a bound on the arguments to UGen structs. This allows for a
+/// wide range of types to be given as parameters. `Input` is implemented by:
+///
+/// * Numeric types - [`i32`], [`f32`], and [`usize`]
+/// * Synth definition parameters - [`Parameter`]
+/// * All UGen structs
+/// * [`Value`]
+/// * A [`Vec`] of other inputs
+///
+/// If a vector of `Input`s is passed to a unit generator, multichannel expansion will be applied.
+///
+/// # Examples
+///
+/// Multichannel expansion:
+/// ```
+/// use sorceress::{synthdef::SynthDef, ugen};
+///
+/// // The following two synth definitions are equivalent.
+///
+/// let synthdef1 = SynthDef::new(
+///     "multichannel",
+///     ugen::Out::ar().channels(ugen::SinOsc::ar().freq(vec![440, 220])),
+/// );
+///
+/// let synthdef2 = SynthDef::new(
+///     "multichannel",
+///     ugen::Out::ar().channels(vec![
+///         ugen::SinOsc::ar().freq(440),
+///         ugen::SinOsc::ar().freq(220),
+///     ]),
+/// );
+/// ```
+pub trait Input: Sized {
+    /// Converts the input into a `Value`.
+    fn into_value(self) -> Value;
 
-    fn div(self, rhs: Value) -> Self::Output {
-        bin_op_ugen(4, self, rhs)
+    /// Adds an `Input` to another.
+    fn add(self, rhs: impl Input) -> Value {
+        bin_op_ugen(0, self.into_value(), rhs.into_value())
+    }
+
+    /// Subtracts an `Input` from another.
+    fn sub(self, rhs: impl Input) -> Value {
+        bin_op_ugen(1, self.into_value(), rhs.into_value())
+    }
+
+    /// Multiplies an `Input` by another.
+    fn mul(self, rhs: impl Input) -> Value {
+        bin_op_ugen(2, self.into_value(), rhs.into_value())
+    }
+
+    /// Divides an `Input` by another.
+    fn div(self, rhs: impl Input) -> Value {
+        bin_op_ugen(3, self.into_value(), rhs.into_value())
+    }
+
+    /// Efficiently multiplies the signal by `mul` and adds `add`.
+    ///
+    /// Uses the `MulAdd` UGen under the hood.
+    fn madd(self, mul: impl Input, add: impl Input) -> Value {
+        mul_add(self, mul, add)
+    }
+
+    /// Converts midi note numbers into cycles per seconds (Hz).
+    fn midicps(self) -> Value {
+        unary_op_ugen(17, self)
+    }
+
+    /// Converts cycles per seconds (Hz) into midi note numbers.
+    fn cpsmidi(self) -> Value {
+        unary_op_ugen(18, self)
+    }
+
+    // TODO: add all unary operators
+}
+
+impl<T> Input for T
+where
+    T: Into<Value>,
+{
+    fn into_value(self) -> Value {
+        self.into()
     }
 }
 
@@ -444,23 +534,5 @@ impl From<UGenSpec<UGenInput>> for Value {
                 )
             }
         })
-    }
-}
-
-/// A conversion into a Value that consumes the input.
-///
-/// This can help convert things into Values in contexts where Into::into is amibguous, such as
-/// when calling a method on Value immediately after the conversion.
-pub trait IntoValue {
-    /// Performs the conversion.
-    fn into_value(self) -> Value;
-}
-
-impl<T> IntoValue for T
-where
-    T: Into<Value>,
-{
-    fn into_value(self) -> Value {
-        self.into()
     }
 }
