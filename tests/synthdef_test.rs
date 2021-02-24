@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use sorceress::{
-    synthdef::{decoder::decode, encoder::encode_synth_defs, Input, Parameter, SynthDef},
+    synthdef::{decoder::decode, encoder::encode_synth_defs, Input, SynthDef},
     ugen,
 };
 use std::{
@@ -16,22 +16,20 @@ use tempdir::TempDir;
 fn test_synthdefs() {
     let mut test_synthdefs = Vec::new();
 
-    test_synthdefs.push(SynthDef::new(
-        "SinOsc-mono",
+    test_synthdefs.push(SynthDef::new("SinOsc-mono", |_| {
         ugen::Out::ar()
             .bus(0)
-            .channels(ugen::SinOsc::ar().freq(440)),
-    ));
+            .channels(ugen::SinOsc::ar().freq(440))
+    }));
 
-    test_synthdefs.push(SynthDef::new(
-        "SinOsc-stereo-expanded",
+    test_synthdefs.push(SynthDef::new("SinOsc-stereo-expanded", |_| {
         ugen::Out::ar()
             .bus(0)
-            .channels(ugen::SinOsc::ar().freq(vec![440, 220])),
-    ));
+            .channels(ugen::SinOsc::ar().freq(vec![440, 220]))
+    }));
 
-    test_synthdefs.push(SynthDef::new("bubbles", {
-        let out = Parameter::new("out", 0.0);
+    test_synthdefs.push(SynthDef::new("bubbles", |params| {
+        let out = params.named("out", 0.0);
         let glissando_function = ugen::LFSaw::kr()
             .freq(0.4)
             .madd(24, ugen::LFSaw::kr().freq(vec![8.0, 7.23]).madd(3, 80))
@@ -42,8 +40,8 @@ fn test_synthdefs() {
         ugen::Out::ar().bus(out).channels(echoing_sine_wave)
     }));
 
-    test_synthdefs.push(SynthDef::new("diskout", {
-        let buffer_number = Parameter::new("bufnum", 0.0);
+    test_synthdefs.push(SynthDef::new("diskout", |params| {
+        let buffer_number = params.named("bufnum", 0.0);
         ugen::DiskOut::ar()
             .bufnum(buffer_number)
             .channels(ugen::In::ar().bus(0).number_of_channels(2))

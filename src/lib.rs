@@ -63,79 +63,79 @@
 //! This example plays the opening melody Stravinsky's The Rite of Spring.
 //!
 //! ```no_run
+//! # use anyhow::Result;
 //! use sorceress::{
 //!     server::{self, Control, Server},
-//!     synthdef::{encoder::encode_synth_defs, Input, Parameter, SynthDef},
+//!     synthdef::{encoder::encode_synth_defs, Input, SynthDef},
 //!     ugen,
 //! };
 //! use std::{thread::sleep, time::Duration};
 //!
-//! # fn main() -> anyhow::Result<()> {
-//! // Create a new SuperCollider server client. A SuperCollider server must be started
-//! // outside of this program and be configured to listen on this UDP port.
-//! let server = Server::connect("127.0.0.1:57110")?;
+//! fn main() -> Result<()> {
+//!     // Create a new SuperCollider server client. A SuperCollider server must be started
+//!     // outside of this program and be configured to listen on this UDP port.
+//!     let server = Server::connect("127.0.0.1:57110")?;
 //!
-//! // Create a synth definition.
-//! let sine_wave = {
-//!     // Parameters allow synths created by this definition to be configured with
-//!     // different values when they are created, or be changed while they are playing.
-//!     let freq = Parameter::new("freq", 0.0);
+//!     // Create a synth definition.
+//!     let sine_wave = {
+//!         // Create and name the synth definition. We will use the name given here to refer
+//!         // to this synth definition in all server commands.
+//!         SynthDef::new("sine_wave", |params| {
+//!             // Parameters allow synths created by this definition to be configured with
+//!             // different values when they are created, or be changed while they are playing.
+//!             let freq = params.named("freq", 0.0);
 //!
-//!     // Creates a sine wave that oscillates between -7 and 7, 5 times per second.
-//!     let vibrato = ugen::SinOsc::ar().freq(5).mul(7);
+//!             // Creates a sine wave that oscillates between -7 and 7, 5 times per second.
+//!             let vibrato = ugen::SinOsc::ar().freq(5).mul(7);
 //!
-//!     // Create and name the synth definition. We will use the name given here to refer
-//!     // to this synth definition in all server commands.
-//!     SynthDef::new(
-//!         "sine_wave",
-//!         // Sends the audio signal to bus 0, which represents your speakers.
-//!         ugen::OffsetOut::ar()
-//!             .bus(0)
-//!             // Pan2 turns a mono signal into a stereo signal.
-//!             .channels(
-//!                 ugen::Pan2::ar()
-//!                     // SuperCollider lets us plug UGens into the inputs of other UGens
-//!                     // to create complex signal processing graphs. Here we are using
-//!                     // the vibrato SinOsc UGen defined above to slightly oscillate the
-//!                     // pitch of the sine wav we will actually hear.
-//!                     .input(freq.mul(vibrato)),
-//!             ),
-//!     )
-//! };
+//!             // Sends the audio signal to bus 0, which represents your speakers.
+//!             ugen::OffsetOut::ar()
+//!                 .bus(0)
+//!                 // Pan2 turns a mono signal into a stereo signal.
+//!                 .channels(
+//!                     ugen::Pan2::ar()
+//!                         // SuperCollider lets us plug UGens into the inputs of other UGens
+//!                         // to create complex signal processing graphs. Here we are using
+//!                         // the vibrato SinOsc UGen defined above to slightly oscillate the
+//!                         // pitch of the sine wav we will actually hear.
+//!                         .input(freq.mul(vibrato)),
+//!                 )
+//!         })
+//!     };
 //!
-//! // Send the synth definition to the SuperCollider server so that we can make synths
-//! // using it.
-//! let encoded_synthdef = encode_synth_defs(vec![sine_wave])?;
-//! server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
+//!     // Send the synth definition to the SuperCollider server so that we can make synths
+//!     // using it.
+//!     let encoded_synthdef = encode_synth_defs(vec![sine_wave])?;
+//!     server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
 //!
-//! // We launch a single synth and set its pitch multiple times to create a melody. Synth
-//! // IDs are numbers that let us to refer to synths after we crate them.
-//! let synth_id: i32 = 1000;
+//!     // We launch a single synth and set its pitch multiple times to create a melody. Synth
+//!     // IDs are numbers that let us to refer to synths after we crate them.
+//!     let synth_id: i32 = 1000;
 //!
-//! // Play series of notes. The second to last number is the midi node number, the last
-//! // is the duration of the note in milliseconds.
-//! start_note(&server, synth_id, 72.0, 1200)?;
-//! set_pitch(&server, synth_id, 71.0, 150)?;
-//! set_pitch(&server, synth_id, 72.0, 150)?;
-//! set_pitch(&server, synth_id, 71.0, 300)?;
-//! set_pitch(&server, synth_id, 67.0, 300)?;
-//! set_pitch(&server, synth_id, 64.0, 300)?;
-//! set_pitch(&server, synth_id, 71.0, 300)?;
-//! set_pitch(&server, synth_id, 69.0, 600)?;
-//! set_pitch(&server, synth_id, 72.0, 400)?;
-//! set_pitch(&server, synth_id, 71.0, 200)?;
-//! set_pitch(&server, synth_id, 72.0, 200)?;
-//! set_pitch(&server, synth_id, 71.0, 400)?;
-//! set_pitch(&server, synth_id, 67.0, 400)?;
-//! set_pitch(&server, synth_id, 64.0, 400)?;
-//! set_pitch(&server, synth_id, 71.0, 400)?;
-//! set_pitch(&server, synth_id, 69.0, 600)?;
+//!     // Play series of notes. The second to last number is the midi node number, the last
+//!     // is the duration of the note in milliseconds.
+//!     start_note(&server, synth_id, 72.0, 1200)?;
+//!     set_pitch(&server, synth_id, 71.0, 150)?;
+//!     set_pitch(&server, synth_id, 72.0, 150)?;
+//!     set_pitch(&server, synth_id, 71.0, 300)?;
+//!     set_pitch(&server, synth_id, 67.0, 300)?;
+//!     set_pitch(&server, synth_id, 64.0, 300)?;
+//!     set_pitch(&server, synth_id, 71.0, 300)?;
+//!     set_pitch(&server, synth_id, 69.0, 600)?;
+//!     set_pitch(&server, synth_id, 72.0, 400)?;
+//!     set_pitch(&server, synth_id, 71.0, 200)?;
+//!     set_pitch(&server, synth_id, 72.0, 200)?;
+//!     set_pitch(&server, synth_id, 71.0, 400)?;
+//!     set_pitch(&server, synth_id, 67.0, 400)?;
+//!     set_pitch(&server, synth_id, 64.0, 400)?;
+//!     set_pitch(&server, synth_id, 71.0, 400)?;
+//!     set_pitch(&server, synth_id, 69.0, 600)?;
 //!
-//! // Stop all sounds on the server.
-//! server.reset()?;
+//!     // Stop all sounds on the server.
+//!     server.reset()?;
 //!
-//! # Ok(())
-//! # }
+//!     Ok(())
+//! }
 //!
 //! fn start_note(server: &Server, synth_id: i32, midi_note: f32, dur_millis: u64) -> Result<()> {
 //!     // Convert the midi note into hertz. The "freq" string refers to the string given to

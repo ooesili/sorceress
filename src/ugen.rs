@@ -495,7 +495,7 @@ ugen! {
     /// let server = Server::connect("127.0.0.1:57110")?;
     ///
     /// // This generates an interesting sound.
-    /// let bubbles = SynthDef::new("bubbles", {
+    /// let bubbles = SynthDef::new("bubbles", |_| {
     ///     let glissando_function = ugen::LFSaw::kr()
     ///         .freq(0.4)
     ///         .madd(24, ugen::LFSaw::kr().freq(vec![8.0, 7.23]).madd(3, 80))
@@ -507,7 +507,7 @@ ugen! {
     /// });
     ///
     /// // This will record the audio signal to disk.
-    /// let diskout = SynthDef::new("diskout", {
+    /// let diskout = SynthDef::new("diskout", |_| {
     ///     ugen::DiskOut::ar()
     ///         .bufnum(buffer_number)
     ///         .channels(ugen::In::ar().bus(0).number_of_channels(2))

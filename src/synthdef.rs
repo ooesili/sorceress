@@ -24,19 +24,15 @@
 //!
 //! ```
 //! use sorceress::{
-//!     synthdef::{Input, Parameter, SynthDef, Value},
-//!     ugen::{Out, SinOsc},
+//!     synthdef::SynthDef,
+//!     ugen::{Out, Pan2, SinOsc},
 //! };
 //!
-//! fn example_synth_def() -> SynthDef {
-//!     let freq = Parameter::new("freq", 440.0).into_value();
-//!     SynthDef::new(
-//!         "example",
-//!         Out::ar().channels(Value::from(
-//!             SinOsc::ar().freq(vec![freq.clone(), freq.mul(2)]),
-//!         )),
-//!     )
-//! }
+//! let synthdef = SynthDef::new("example", |params| {
+//!     let freq = params.named("freq", 440.0);
+//!     let pan = params.named("pan", 0.0);
+//!     Out::ar().channels(Pan2::ar().input(SinOsc::ar().freq(freq)).pos(pan))
+//! });
 //! ```
 use crate::vectree::VecTree;
 use std::sync::Arc;
@@ -53,6 +49,7 @@ pub mod encoder;
 pub struct SynthDef {
     name: String,
     graph: VecTree<Scalar>,
+    params: Parameters,
 }
 
 impl SynthDef {
@@ -61,10 +58,38 @@ impl SynthDef {
     /// The name given here is used when creating new synths after this synthdef definition has be
     /// registered with the server. This method does not register the synth definition with the
     /// SuperCollider server which must happen before synths can be created from it.
-    pub fn new(name: impl Into<String>, graph: impl Input) -> Self {
-        Self {
+    ///
+    /// You can refer to parameters by index or name in many server commands, The `Parameters`
+    /// passed to the `ugen_fn` allow you to control the order of parameters in the synth
+    /// definition. The order of calls to methods on passed [`Parameters`] determines the index of
+    /// each parameter. For that reason it's recommend to declare all parameters up front at the
+    /// top of the `ugen_fn`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sorceress::{
+    ///     synthdef::{Input, SynthDef},
+    ///     ugen,
+    /// };
+    ///
+    /// let synthdef = SynthDef::new("example", |params| {
+    ///     let freq = params.named("name", 440.0); // index 0
+    ///     let vol = params.named("vol", 1.0); // index 1
+    ///     ugen::Out::ar().channels(ugen::SinOsc::ar().freq(freq).mul(vol))
+    /// });
+    /// ```
+    pub fn new<F, T>(name: impl Into<String>, ugen_fn: F) -> SynthDef
+    where
+        F: FnOnce(&mut Parameters) -> T,
+        T: Input,
+    {
+        let mut params = Parameters::empty();
+        let graph = ugen_fn(&mut params).into_value().0;
+        SynthDef {
             name: name.into(),
-            graph: graph.into_value().0,
+            graph,
+            params,
         }
     }
 
@@ -164,6 +189,36 @@ impl Scalar {
     }
 }
 
+/// A factory for creating parameters in a synth definition.
+///
+/// A value of this type is passed to the `ugen_fn` closure given to [`SynthDef::new`]. See
+/// [`SynthDef::new`] for more details.
+#[derive(Debug, Clone)]
+pub struct Parameters {
+    initial_values: Vec<f32>,
+    names: Vec<(String, usize)>,
+}
+
+impl Parameters {
+    fn empty() -> Parameters {
+        Parameters {
+            initial_values: Vec::new(),
+            names: Vec::new(),
+        }
+    }
+
+    /// Defines a parameter within a synth definition.
+    ///
+    /// Creates a new named parameter with an initial value. If a value is not specified for this
+    /// parameter when creating a new synth, the initial value will be used.
+    pub fn named(&mut self, name: impl Into<String>, initial_value: f32) -> Parameter {
+        let index = self.initial_values.len();
+        self.initial_values.push(initial_value);
+        self.names.push((name.into(), index));
+        Parameter { index }
+    }
+}
+
 /// A synth definition parameter.
 ///
 /// Parameters allow synths to be controlled externally.
@@ -171,41 +226,21 @@ impl Scalar {
 /// # Examples
 /// ```
 /// use sorceress::{
-///     synthdef::{Parameter, SynthDef},
+///     synthdef::SynthDef,
 ///     ugen::{Out, Pan2, SinOsc},
 /// };
 ///
 /// fn example_synth_def() -> SynthDef {
-///     let freq = Parameter::new("freq", 440.0);
-///     let pan = Parameter::new("pan", 0.0);
-///     SynthDef::new(
-///         "example",
-///         Out::ar().channels(Pan2::ar().input(SinOsc::ar().freq(freq)).pos(pan)),
-///     )
+///     SynthDef::new("example", |params| {
+///         let freq = params.named("freq", 440.0);
+///         let pan = params.named("pan", 0.0);
+///         Out::ar().channels(Pan2::ar().input(SinOsc::ar().freq(freq)).pos(pan))
+///     })
 /// }
 /// ```
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parameter {
-    name: String,
-    initial_value: f32,
-}
-
-impl Parameter {
-    /// Creates a new parameter with an initial value. If a value is not specified for this
-    /// parameter when creating a new synth, the initial value will be used.
-    pub fn new(name: impl AsRef<str>, initial_value: f32) -> Self {
-        Self {
-            name: name.as_ref().to_owned(),
-            initial_value,
-        }
-    }
-
-    /// Creates a new parameter with an initial value of zero.
-    ///
-    /// This is simply a convenience function around [`Parameter::new`].
-    pub fn zero(name: impl AsRef<str>) -> Self {
-        Self::new(name, 0.0)
-    }
+    index: usize,
 }
 
 impl Input for Parameter {
@@ -337,7 +372,7 @@ fn unary_op_ugen(special_index: i16, input: impl Input) -> Value {
 
 fn input_rate(inputs: &[Scalar]) -> Rate {
     inputs
-        .into_iter()
+        .iter()
         .map(|input| input.rate())
         .max()
         .unwrap_or(Rate::Scalar)
@@ -364,18 +399,16 @@ fn input_rate(inputs: &[Scalar]) -> Rate {
 ///
 /// // The following two synth definitions are equivalent.
 ///
-/// let synthdef1 = SynthDef::new(
-///     "multichannel",
-///     ugen::Out::ar().channels(ugen::SinOsc::ar().freq(vec![440, 220])),
-/// );
+/// let synthdef1 = SynthDef::new("multichannel", |_| {
+///     ugen::Out::ar().channels(ugen::SinOsc::ar().freq(vec![440, 220]))
+/// });
 ///
-/// let synthdef2 = SynthDef::new(
-///     "multichannel",
+/// let synthdef2 = SynthDef::new("multichannel", |_| {
 ///     ugen::Out::ar().channels(vec![
 ///         ugen::SinOsc::ar().freq(440),
 ///         ugen::SinOsc::ar().freq(220),
-///     ]),
-/// );
+///     ])
+/// });
 /// ```
 pub trait Input: Sized {
     /// Converts the input into a `Value`.

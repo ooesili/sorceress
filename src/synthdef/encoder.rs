@@ -16,7 +16,7 @@
 
 //! Serializes synth definitions into the format accepted by SuperCollider.
 
-use super::{Rate, Scalar, SynthDef, UGenSpec};
+use super::{Parameters, Rate, Scalar, SynthDef, UGenSpec};
 use std::io;
 use std::sync::Arc;
 
@@ -35,7 +35,7 @@ use std::sync::Arc;
 ///     ugen::{Out, SinOsc},
 /// };
 ///
-/// let synth_def = SynthDef::new("example", Out::ar().channels(SinOsc::ar().freq(440)));
+/// let synth_def = SynthDef::new("example", |_| Out::ar().channels(SinOsc::ar().freq(440)));
 /// let encoded_file = encode_synth_defs(vec![synth_def])?;
 /// # std::io::Result::Ok(())
 /// ```
@@ -46,12 +46,13 @@ pub fn encode_synth_defs(synth_defs: impl IntoIterator<Item = SynthDef>) -> io::
             (
                 synthdef.name,
                 synthdef.graph.into_iter().collect::<Vec<_>>(),
+                synthdef.params,
             )
         })
         .collect::<Vec<_>>();
     let graphs = expanded_synths
         .iter()
-        .map(|(name, expanded_inputs)| SynthDefGraph::new(&name, expanded_inputs))
+        .map(|(name, expanded_inputs, params)| SynthDefGraph::new(name, &expanded_inputs, params))
         .collect();
 
     let mut buffer = Vec::new();
@@ -61,37 +62,49 @@ pub fn encode_synth_defs(synth_defs: impl IntoIterator<Item = SynthDef>) -> io::
 }
 
 struct SynthDefGraph<'a> {
-    name: &'a str,
+    name: String,
     constants: Vec<Const>,
-    parameter_specs: Vec<ParameterSpec<'a>>,
+    initial_parameter_values: &'a [f32],
+    parameter_names: &'a [(String, usize)],
     ugens: Vec<SynthDefUgen<'a>>,
     variant_specs: Vec<VariantSpec<'a>>,
-    control_spec: Arc<UGenSpec<Scalar>>,
 }
 
 impl<'a> SynthDefGraph<'a> {
-    fn new(name: &'a str, inputs: &'a [Scalar]) -> Self {
+    fn new(name: impl Into<String>, inputs: &'a [Scalar], params: &'a Parameters) -> Self {
         let mut file = SynthDefGraph {
-            name,
+            name: name.into(),
             constants: Vec::new(),
-            parameter_specs: Vec::new(),
+            initial_parameter_values: &params.initial_values,
+            parameter_names: &params.names,
             ugens: Vec::new(),
             variant_specs: Vec::new(),
-            control_spec: Arc::new(UGenSpec {
-                name: "Control".to_owned(),
-                rate: Rate::Audio,
-                special_index: 0,
-                inputs: vec![],
-                outputs: vec![Rate::Control],
-            }),
         };
+        if !params.initial_values.is_empty() {
+            file.ugens.push(SynthDefUgen {
+                source: Arc::new(UGenSpec {
+                    name: "Control".to_owned(),
+                    rate: Rate::Audio,
+                    special_index: 0,
+                    inputs: vec![],
+                    outputs: vec![Rate::Control; params.initial_values.len()],
+                }),
+                spec: UgenSpecRef {
+                    name: "Control",
+                    rate: Rate::Control.into(),
+                    special_index: 0,
+                    input_specs: vec![],
+                    output_specs: vec![Rate::Control.into(); params.initial_values.len()],
+                },
+            })
+        }
         for value in inputs.iter() {
             file.encode(value);
         }
         file
     }
 
-    fn encode(&mut self, input: &'a Scalar) -> Vec<(i32, i32)> {
+    fn encode(&mut self, input: &'a Scalar) -> (i32, i32) {
         match input {
             Scalar::Const(n) => {
                 let constant = Const(*n);
@@ -103,51 +116,11 @@ impl<'a> SynthDefGraph<'a> {
                         self.constants.push(constant);
                         self.constants.len() - 1
                     });
-                vec![(-1, index as i32)]
+                (-1, index as i32)
             }
             Scalar::Parameter(ref parameter) => {
-                // First see if the control ugen exists. If it does not, add it with a single
-                // output. If it does exist, append a control rate output to the ugen. Add an entry
-                // to the parameter_names and initial_parameter_values vectors.
-
-                let control_ugen_index = self
-                    .ugens
-                    .iter()
-                    .position(|u| u.source.name == "Control")
-                    .unwrap_or_else(|| {
-                        let ugen_spec = UgenSpecRef {
-                            name: "Control",
-                            rate: Rate::Control.into(),
-                            special_index: 0,
-                            input_specs: vec![],
-                            output_specs: vec![],
-                        };
-                        self.ugens.push(SynthDefUgen {
-                            index: self.ugens.len(),
-                            source: self.control_spec.clone(),
-                            spec: ugen_spec,
-                        });
-                        self.ugens.len() - 1
-                    });
-
-                let parameter_spec = ParameterSpec {
-                    name: &parameter.name,
-                    initial_value: parameter.initial_value,
-                };
-                let parameter_index = self
-                    .parameter_specs
-                    .iter()
-                    .position(|p| p == &parameter_spec)
-                    .unwrap_or_else(|| {
-                        self.ugens[control_ugen_index]
-                            .spec
-                            .output_specs
-                            .push(Rate::Control.into());
-                        self.parameter_specs.push(parameter_spec);
-                        self.parameter_specs.len() - 1
-                    });
-
-                vec![(control_ugen_index as i32, parameter_index as i32)]
+                // The control UGen is always first, and it only exists if there are parameters.
+                (0, parameter.index as i32)
             }
             Scalar::Ugen {
                 output_index,
@@ -161,11 +134,9 @@ impl<'a> SynthDefGraph<'a> {
                         let input_specs = ugen_spec
                             .inputs
                             .iter()
-                            // TODO: this is wrong
-                            .map(|input| self.encode(input)[0])
+                            .map(|input| self.encode(input))
                             .collect();
                         self.ugens.push(SynthDefUgen {
-                            index: self.ugens.len(),
                             source: ugen_spec.clone(),
                             spec: UgenSpecRef {
                                 name: &ugen_spec.name,
@@ -181,7 +152,7 @@ impl<'a> SynthDefGraph<'a> {
                         });
                         self.ugens.len() - 1
                     });
-                vec![(index as i32, *output_index)]
+                (index as i32, *output_index)
             }
         }
     }
@@ -190,15 +161,8 @@ impl<'a> SynthDefGraph<'a> {
 #[derive(PartialEq)]
 struct Const(f32);
 
-#[derive(Debug, PartialEq)]
-struct ParameterSpec<'a> {
-    name: &'a str,
-    initial_value: f32,
-}
-
 #[derive(Debug)]
 struct SynthDefUgen<'a> {
-    index: usize,
     source: Arc<UGenSpec<Scalar>>,
     spec: UgenSpecRef<'a>,
 }
@@ -228,21 +192,21 @@ where {
 
     write_i16(out, graphs.len() as i16)?;
     for graph in graphs {
-        write_pstring(out, graph.name)?;
+        write_pstring(out, &graph.name)?;
         write_i32(out, graph.constants.len() as i32)?;
         for constant in graph.constants {
             write_f32(out, constant.0)?;
         }
 
-        write_i32(out, graph.parameter_specs.len() as i32)?;
-        for parameter_spec in graph.parameter_specs.iter() {
-            write_f32(out, parameter_spec.initial_value)?;
+        write_i32(out, graph.initial_parameter_values.len() as i32)?;
+        for initial_value in graph.initial_parameter_values.iter() {
+            write_f32(out, *initial_value)?;
         }
 
-        write_i32(out, graph.parameter_specs.len() as i32)?;
-        for (position, parameter_spec) in graph.parameter_specs.iter().enumerate() {
-            write_pstring(out, &parameter_spec.name)?;
-            write_i32(out, position as i32)?;
+        write_i32(out, graph.parameter_names.len() as i32)?;
+        for (parameter_name, parameter_index) in graph.parameter_names.iter() {
+            write_pstring(out, &parameter_name)?;
+            write_i32(out, *parameter_index as i32)?;
         }
 
         write_i32(out, graph.ugens.len() as i32)?;
