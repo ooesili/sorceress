@@ -1083,6 +1083,7 @@ pub enum Reply {
     },
 
     /// An error occured.
+    #[non_exhaustive]
     Fail {
         /// The name of the command that failed.
         command: String,
