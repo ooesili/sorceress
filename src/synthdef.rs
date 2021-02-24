@@ -353,8 +353,8 @@ fn mul_add(value: impl Input, mul: impl Input, add: impl Input) -> Value {
     })
 }
 
-fn unary_op_ugen(special_index: i16, input: impl Input) -> Value {
-    let inputs = vec![UGenInput::Simple(input.into_value())];
+fn unary_op_ugen(special_index: i16, value: Value) -> Value {
+    let inputs = vec![UGenInput::Simple(value)];
     expand_inputs_with(inputs, &mut |inputs: Vec<Scalar>| {
         let rate = input_rate(&inputs);
         VecTree::Leaf(Scalar::Ugen {
@@ -429,9 +429,19 @@ pub trait Input: Sized {
         bin_op_ugen(2, self.into_value(), rhs.into_value())
     }
 
-    /// Divides an `Input` by another.
+    /// Divides an `Input` by another using floating point division.
     fn div(self, rhs: impl Input) -> Value {
         bin_op_ugen(3, self.into_value(), rhs.into_value())
+    }
+
+    /// Divides an `Input` by another using integer division.
+    fn idiv(self, rhs: impl Input) -> Value {
+        bin_op_ugen(4, self.into_value(), rhs.into_value())
+    }
+
+    /// Modulo operator.
+    fn modulo(self, divisor: impl Input) -> Value {
+        bin_op_ugen(5, self.into_value(), divisor.into_value())
     }
 
     /// Efficiently multiplies the signal by `mul` and adds `add`.
@@ -443,12 +453,12 @@ pub trait Input: Sized {
 
     /// Converts midi note numbers into cycles per seconds (Hz).
     fn midicps(self) -> Value {
-        unary_op_ugen(17, self)
+        unary_op_ugen(17, self.into_value())
     }
 
     /// Converts cycles per seconds (Hz) into midi note numbers.
     fn cpsmidi(self) -> Value {
-        unary_op_ugen(18, self)
+        unary_op_ugen(18, self.into_value())
     }
 
     // TODO: add all unary operators

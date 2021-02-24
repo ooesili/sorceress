@@ -373,9 +373,9 @@ ugen! {
 
             /// Phase in radians. Sampled at audio-rate.
             ///
-            /// **Note**: phase values should be within the range +-8pi.
-            // TODO: add `.mod` operator
-            // If your phase values are larger then simply use .mod(2pi) to wrap them.
+            /// **Note**: phase values should be within the range +-8pi. If your phase values are
+            /// larger then simply use [`.modulo()`](crate::synthdef::Input::modulo) with
+            /// [`TAU`](std::f32::consts::TAU) to wrap them.
             phase: f32 = 0
         }
     }
