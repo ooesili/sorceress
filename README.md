@@ -2,7 +2,7 @@
 
 [![built with nix](https://builtwithnix.org/badge.svg)](https://builtwithnix.org) [![Crates.io](https://img.shields.io/crates/v/sorceress.svg?style=flat-square)](https://crates.io/crates/sorceress) [![docs.rs docs](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/sorceress) [![Gitter](https://badges.gitter.im/sorceress-rs/community.svg)](https://gitter.im/sorceress-rs/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-A Rust environment for sound synthesis and algorithmic composition.
+A Rust environment for sound synthesis and algorithmic composition, powered by [SuperCollider](https://supercollider.github.io/).
 
 ![Sorceress](/assets/sorceress.svg)
 
