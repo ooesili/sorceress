@@ -452,6 +452,61 @@ impl Control {
     }
 }
 
+/// A range of adjacent synth controls.
+///
+/// Specifies values for a range of adjacent controls. Used in [`SynthNew`] and [`NodeSet`].
+#[derive(Debug)]
+pub struct ControlRange {
+    start_id: ControlID,
+    values: Vec<ControlValue>,
+}
+
+impl ControlRange {
+    /// Create a new list of values for a range of adjcent controls.
+    pub fn new<V>(
+        start_id: impl Into<ControlID>,
+        values: impl IntoIterator<Item = V>,
+    ) -> ControlRange
+    where
+        V: Into<ControlValue>,
+    {
+        ControlRange {
+            start_id: start_id.into(),
+            values: values.into_iter().map(V::into).collect(),
+        }
+    }
+
+    fn into_osc_args(self) -> Vec<OscType> {
+        if self.values.len() == 1 {
+            vec![
+                self.start_id.into_osc_type(),
+                self.values[0].into_osc_type(),
+            ]
+        } else {
+            vec![
+                self.start_id.into_osc_type(),
+                OscType::Array(rosc::OscArray {
+                    content: self
+                        .values
+                        .into_iter()
+                        .map(|value| value.into_osc_type())
+                        .collect(),
+                }),
+            ]
+        }
+    }
+}
+
+impl From<Control> for ControlRange {
+    /// Converts to a `ControlRange` with a single value.
+    fn from(control: Control) -> ControlRange {
+        ControlRange {
+            start_id: control.id,
+            values: vec![control.value],
+        }
+    }
+}
+
 /// An identifier for a synth definition's control.
 ///
 /// The controls in a synth definition can be identified by their number or by name. Used when
@@ -1416,8 +1471,6 @@ impl Command for NodeFree {
     }
 }
 
-// TODO: The SuperCollider server command reference docs mention something about now supporting
-// "array type tags". We should look into that and see if it is useful to support.
 /// Set a node's control value(s).
 ///
 /// Takes a list of pairs of control IDs and values and sets the controls to those values. If the
@@ -1425,7 +1478,7 @@ impl Command for NodeFree {
 #[derive(Debug)]
 pub struct NodeSet {
     node_id: i32,
-    controls: Vec<Control>,
+    controls: Vec<ControlRange>,
 }
 
 impl NodeSet {
@@ -1434,11 +1487,20 @@ impl NodeSet {
     /// # Arguments
     ///
     /// * `node_id` - The ID of the node that this command will affect.
-    /// * `controls` - A list of pairs of control IDs and values.
-    pub fn new(node_id: i32, controls: impl IntoIterator<Item = Control>) -> NodeSet {
+    /// * `controls` - Controls to set on the synth.
+    ///
+    /// Each item in `controls` can be one of the following types:
+    ///
+    /// * [`Control`] - a control index or name and a value.
+    /// * [`ControlRange`] - a starting index or name and a range of values. The values are applied
+    ///   sequentially starting at the indexed or named control.
+    pub fn new<C>(node_id: i32, controls: impl IntoIterator<Item = C>) -> NodeSet
+    where
+        C: Into<ControlRange>,
+    {
         NodeSet {
             node_id,
-            controls: controls.into_iter().collect(),
+            controls: controls.into_iter().map(C::into).collect(),
         }
     }
 }
@@ -1448,9 +1510,11 @@ impl Command for NodeSet {
     fn into_packet(self) -> Packet {
         Message::addr("/n_set")
             .arg(self.node_id)
-            .args(self.controls.into_iter().flat_map(|control| {
-                vec![control.id.into_osc_type(), control.value.into_osc_type()]
-            }))
+            .args(
+                self.controls
+                    .into_iter()
+                    .flat_map(ControlRange::into_osc_args),
+            )
             .into_packet()
     }
 }
@@ -1478,7 +1542,7 @@ pub struct SynthNew {
     synth_id: i32,
     add_action: AddAction,
     add_target_id: i32,
-    controls: Vec<Control>,
+    controls: Vec<ControlRange>,
 }
 
 impl SynthNew {
@@ -1489,19 +1553,29 @@ impl SynthNew {
     /// * `synthdef_name` - The name of the synth definition to use.
     /// * `add_target_id` - The ID used by [`add_action`](SynthNew::add_action). See [`AddAction`]
     ///   for more details.
-    /// * `controls` - A list of pairs of control IDs and values.
-    pub fn new(
-        synthdef_name: impl AsRef<str>,
-        add_target_id: i32,
-        controls: impl IntoIterator<Item = Control>,
-    ) -> SynthNew {
+    pub fn new(synthdef_name: impl AsRef<str>, add_target_id: i32) -> SynthNew {
         SynthNew {
             synthdef_name: synthdef_name.as_ref().to_owned(),
             synth_id: -1,
             add_target_id,
-            controls: controls.into_iter().collect(),
+            controls: Vec::new(),
             add_action: AddAction::HeadOfGroup,
         }
+    }
+
+    /// Set controls on the crated synth.
+    ///
+    /// Each item in `controls` can be one of the following types:
+    ///
+    /// * [`Control`] - a control index or name and a value.
+    /// * [`ControlRange`] - a starting index or name and a range of values. The values are applied
+    ///   sequentially starting at the indexed or named control.
+    pub fn controls<C>(mut self, controls: impl IntoIterator<Item = C>) -> SynthNew
+    where
+        C: Into<ControlRange>,
+    {
+        self.controls = controls.into_iter().map(C::into).collect();
+        self
     }
 
     /// Sets the add action. See [`AddAction`] for more details. Defaults to
@@ -1526,9 +1600,11 @@ impl Command for SynthNew {
             .arg(self.synth_id)
             .arg(self.add_action as i32)
             .arg(self.add_target_id)
-            .args(self.controls.into_iter().flat_map(|control| {
-                vec![control.id.into_osc_type(), control.value.into_osc_type()]
-            }))
+            .args(
+                self.controls
+                    .into_iter()
+                    .flat_map(ControlRange::into_osc_args),
+            )
             .into_packet()
     }
 }

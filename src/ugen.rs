@@ -481,7 +481,7 @@ ugen! {
     ///
     /// ```no_run
     /// use sorceress::{
-    ///     server::{self, Server},
+    ///     server::{self, Control, Server},
     ///     synthdef::{encoder::encode_synth_defs, Input, SynthDef},
     ///     ugen,
     /// };
@@ -518,8 +518,8 @@ ugen! {
     /// server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
     ///
     /// // Start something to record.
-    /// let source_synth_id = 2003;
-    /// server.send(server::SynthNew::new("bubbles", 1, vec![]).synth_id(source_synth_id))?;
+    /// let source_synth_id = 2003i32;
+    /// server.send(server::SynthNew::new("bubbles", 1).synth_id(source_synth_id))?;
     ///
     /// // Allocate a buffer for disk I/O.
     /// server.send_sync(server::BufferAllocate::new(buffer_number, 65536).number_of_channels(2))?;
@@ -538,12 +538,12 @@ ugen! {
     ///
     /// // Create the DiskOut node.
     /// let recording_synth_id = 2004;
-    /// server.send({
-    ///     let controls = vec![server::Control::new("bufnum", buffer_number)];
-    ///     server::SynthNew::new("diskout", source_synth_id, controls)
+    /// server.send(
+    ///     server::SynthNew::new("diskout", source_synth_id)
+    ///         .controls(vec![Control::new("bufnum", buffer_number)])
     ///         .synth_id(recording_synth_id)
     ///         .add_action(server::AddAction::AfterNode)
-    /// })?;
+    /// )?;
     ///
     /// // Let it play for a while
     /// thread::sleep(Duration::from_secs(5));

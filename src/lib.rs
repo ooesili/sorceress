@@ -138,12 +138,15 @@
 //! }
 //!
 //! fn start_note(server: &Server, synth_id: i32, midi_note: f32, dur_millis: u64) -> Result<()> {
-//!     // Convert the midi note into hertz. The "freq" string refers to the string given to
-//!     // the `Parameter` in the synth definition above.
-//!     let controls = vec![Control::new("freq", midi_to_hz(midi_note))];
-//!
 //!     // Create a new synth from the synth definition we registered earlier.
-//!     server.send(server::SynthNew::new("sine_wave", 1, controls).synth_id(synth_id))?;
+//!     server.send(
+//!         server::SynthNew::new("sine_wave", 1)
+//!              // Convert the midi note into hertz. The "freq" string refers to the string
+//!              // given to the `Parameter` in the synth definition above.
+//!             .controls(vec![Control::new("freq", midi_to_hz(midi_note))])
+//!             // Explicitly set the synth ID so that we can control it later.
+//!             .synth_id(synth_id),
+//!     )?;
 //!
 //!     // Sleep to delay the next note.
 //!     sleep(Duration::from_millis(dur_millis));
