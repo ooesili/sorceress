@@ -198,7 +198,7 @@ impl fmt::Debug for Server {
 
 struct ServerInner {
     socket: UdpSocket,
-    subscribers: Mutex<Vec<Subscriber>>,
+    subscribers: Mutex<Vec<mpsc::Sender<Reply>>>,
 
     // IDs used in /sync commands only need to be unique per client, so we do not need to persist
     // them.
@@ -228,25 +228,32 @@ impl Server {
         Ok(server)
     }
 
-    /// Adds a new reply subscriber.
+    /// Subscribes to replies from the server.
     ///
-    /// The subscriber will be called with every reply received from the SuperCollider server until
-    /// it is unsubscribed using [`unsubscribe`](Server::unsubscribe).
-    pub fn subscribe(&self, sub: &Subscriber) {
-        self.0.subscribers.lock().unwrap().push(sub.clone());
-    }
-
-    /// Removes a subscriber.
+    /// Returns the [`Receiver`](std::sync::mpsc::Receiver) end of an asynchronous channel that
+    /// receives each reply sent by the SuperCollider server. The
+    /// [`Sender`](std::sync::mpsc::Receiver) on the other end of the returned channel will never
+    /// hang up first, so you can safely [`unwrap`](std::result::Result::unwrap) the errors
+    /// returned by [`Receiver::recv()`](std::sync::mpsc::Receiver::recv).
     ///
-    /// After this call the subscriber will no longer receiver replies from the SuperCollider
-    /// server. The same value previously passed to [`subscribe`](Server::subscribe) must be used
-    /// here.
-    pub fn unsubscribe(&self, sub: &Subscriber) {
-        let subscribers = &mut self.0.subscribers.lock().unwrap();
-        subscribers
-            .iter()
-            .position(|s| Arc::ptr_eq(&sub.0, &s.0))
-            .map(|index| subscribers.swap_remove(index));
+    /// If you no longer wish to receive from the channel you should drop it prompty. Messages will
+    /// accumulate in the channel until the `Receiver` is is dropped.
+    ///
+    /// ```no_run
+    /// use sorceress::server::Server;
+    ///
+    /// let server = Server::connect("127.0.0.1:57110")?;
+    /// let replies = server.subscribe();
+    /// loop {
+    ///     let reply = replies.recv().unwrap();
+    ///     println!("reply received: {:?}", reply);
+    /// }
+    /// # sorceress::server::Result::Ok(())
+    /// ```
+    pub fn subscribe(&self) -> mpsc::Receiver<Reply> {
+        let (sender, receiver) = mpsc::channel();
+        self.0.subscribers.lock().unwrap().push(sender);
+        receiver
     }
 
     /// Sends a command and waits it to complete.
@@ -256,30 +263,17 @@ impl Server {
     /// understands which replies correspond to each command and uses that information to block
     /// until the command is complete and returns the reply.
     pub fn send_sync(&self, command: impl AsyncCommand) -> Result<Reply> {
-        let (sender, receiver) = mpsc::channel();
         let reply_matcher = command.reply_matcher();
         let packet = command.into_packet();
 
-        let subscriber = Subscriber::new(move |reply| {
-            if reply_matcher.matches(reply) {
-                sender.send(reply.clone()).unwrap();
+        let replies = self.subscribe();
+        self.send(packet)?;
+        loop {
+            let reply = replies.recv().unwrap();
+            if reply_matcher.matches(&reply) {
+                return Ok(reply);
             }
-        });
-
-        self.with_subscription(subscriber, || {
-            self.send(packet)?;
-            Ok(receiver.recv().unwrap())
-        })
-    }
-
-    fn with_subscription<F, T>(&self, subscriber: Subscriber, f: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
-        self.subscribe(&subscriber);
-        let x = f();
-        self.unsubscribe(&subscriber);
-        x
+        }
     }
 
     /// Sends a command to the server.
@@ -299,14 +293,20 @@ impl Server {
 
     fn recv_loop(self) {
         const MTU: usize = 65536;
+        let mut buffer = [0_u8; MTU];
+
         loop {
-            match Self::recv(&self.0.socket, MTU) {
+            match self.recv(&mut buffer) {
                 Ok(packet) => match packet {
                     OscPacket::Message(message) => {
                         if let Some(reply) = Reply::parse(&message) {
-                            let subscribers = self.0.subscribers.lock().unwrap();
-                            for sub in subscribers.iter() {
-                                (sub.0.lock().unwrap())(&reply);
+                            let mut subscribers = self.0.subscribers.lock().unwrap();
+                            let mut offset = 0;
+                            for i in 0..subscribers.len() {
+                                if subscribers[i - offset].send(reply.clone()).is_err() {
+                                    subscribers.swap_remove(i);
+                                    offset += 1;
+                                }
                             }
                         }
                     }
@@ -319,10 +319,11 @@ impl Server {
         }
     }
 
-    fn recv(socket: &UdpSocket, mtu: usize) -> Result<OscPacket> {
-        let mut buffer = vec![0; mtu];
-        let len = socket
-            .recv(&mut buffer)
+    fn recv(&self, buffer: &mut [u8]) -> Result<OscPacket> {
+        let len = self
+            .0
+            .socket
+            .recv(buffer)
             .map_err(|err| Error(ErrorInner::Recv(err)))?;
         let packet = decode(&buffer[..len]).map_err(|err| Error(ErrorInner::OscDecode(err)))?;
         log::debug!("recv: {:?}", packet);
@@ -347,24 +348,6 @@ impl Server {
 
     fn next_sync_id(&self) -> i32 {
         self.0.sync_id_counter.fetch_add(1, Ordering::Relaxed)
-    }
-}
-
-/// A callback for reacting to server replies.
-///
-/// Allows a function to be registered with a [`Server`] using [`Server::subscribe`] and invoked
-/// every time the server recieves a reply. The function wil be called with every reply sent to the
-/// server until the subscriber is unsubscribed via [`Server::unsubscribe`].
-#[derive(Clone)]
-pub struct Subscriber(Arc<Mutex<dyn FnMut(&Reply) + Send>>);
-
-impl Subscriber {
-    /// Create a new subscriber using the given closure.
-    pub fn new<F>(f: F) -> Subscriber
-    where
-        F: FnMut(&Reply) + Send + 'static,
-    {
-        Subscriber(Arc::new(Mutex::new(f)))
     }
 }
 
