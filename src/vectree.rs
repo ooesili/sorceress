@@ -130,20 +130,20 @@ impl<T> VecTree<T> {
 
 impl<T> IntoIterator for VecTree<T> {
     type Item = T;
-    type IntoIter = Iter<T>;
+    type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Iter {
+        IntoIter {
             stack: vec![vec![self]],
         }
     }
 }
 
-pub struct Iter<T> {
+pub struct IntoIter<T> {
     stack: Vec<Vec<VecTree<T>>>,
 }
 
-impl<T> Iter<T> {
+impl<T> IntoIter<T> {
     fn next_tree(&mut self) -> Option<VecTree<T>> {
         loop {
             if self.stack.is_empty() {
@@ -158,7 +158,7 @@ impl<T> Iter<T> {
     }
 }
 
-impl<T> Iterator for Iter<T> {
+impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
