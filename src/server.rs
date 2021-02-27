@@ -657,6 +657,13 @@ impl Command for Quit {
     }
 }
 
+impl AsyncCommand for Quit {
+    #[doc(hidden)]
+    fn reply_matcher(&self) -> ReplyMatcher {
+        ReplyMatcher::new(|reply| matches!(reply, Reply::Done))
+    }
+}
+
 /// Register to receive notifications from server.
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::NotifyDone`] message containing a
@@ -700,6 +707,13 @@ impl Command for Notify {
             .arg(self.setting as i32)
             .optional(self.client_id)
             .into_packet()
+    }
+}
+
+impl AsyncCommand for Notify {
+    #[doc(hidden)]
+    fn reply_matcher(&self) -> ReplyMatcher {
+        ReplyMatcher::new(|reply| matches!(reply, Reply::NotifyDone { .. }))
     }
 }
 
