@@ -919,7 +919,7 @@ impl BufferRead {
 
     /// Leave the file open after reading. This is only useful in combination with the `DiskIn` UGen.
     pub fn leave_file_open(mut self) -> BufferRead {
-        self.leave_file_open = 0;
+        self.leave_file_open = 1;
         self
     }
 
