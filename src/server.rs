@@ -505,13 +505,12 @@ impl ControlRange {
         } else {
             vec![
                 self.start_id.into_osc_type(),
-                OscType::Array(rosc::OscArray {
-                    content: self
-                        .values
+                OscType::Array(
+                    self.values
                         .into_iter()
                         .map(|value| value.into_osc_type())
                         .collect(),
-                }),
+                ),
             ]
         }
     }

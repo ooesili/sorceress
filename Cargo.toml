@@ -17,7 +17,7 @@ exclude = [
 ]
 
 [dependencies]
-rosc = "0.4.2"
+rosc = "0.4.3"
 log = "0.4.14"
 
 [dev-dependencies]
