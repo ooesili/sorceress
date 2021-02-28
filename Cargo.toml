@@ -15,6 +15,5 @@ rosc = "0.4.2"
 log = "0.4.14"
 
 [dev-dependencies]
-anyhow = "1.0.38"
 pretty_assertions = "0.6.1"
 tempdir = "0.3.7"

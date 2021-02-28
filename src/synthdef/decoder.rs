@@ -33,6 +33,13 @@ use std::{
 const SYNTH_DEF_2_TYPE_ID: i32 = 0x53436766; // hex("SCgf")
 
 /// Decodes a synth definition file.
+///
+/// See [the module level documentation](self) for more.
+///
+/// # Errors
+///
+/// * Returns [`Error::IO`] if the function encounters an I/O error reading the input.
+/// * Returns [`Error::BadTypeID`] if the type ID field in the file header is incorrect.
 pub fn decode_synthdef_file<R: Read>(read: R) -> Result<SynthDefFile> {
     let mut scanner = Scanner(read);
     SynthDefFile::new(&mut scanner)

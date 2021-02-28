@@ -214,7 +214,13 @@ impl Server {
     /// This function will not boot an SuperCollider server. You must start one separately.
     ///
     /// # Arguments
+    ///
     /// * `address` - The UDP address of the SuperCollider server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a UDP socket cannot be created or if the UDP socket cannot connect to
+    /// the `server_address`.
     pub fn connect<A: ToSocketAddrs>(server_address: A) -> Result<Server> {
         let socket = std::net::UdpSocket::bind("0.0.0.0:0")
             .map_err(|err| Error(ErrorInner::UdpBind(err)))?;
@@ -242,6 +248,8 @@ impl Server {
     /// If you no longer wish to receive from the channel you should drop it prompty. Messages will
     /// accumulate in the channel until the `Receiver` is is dropped.
     ///
+    /// # Examples
+    ///
     /// ```no_run
     /// use sorceress::server::Server;
     ///
@@ -265,6 +273,10 @@ impl Server {
     /// a backround thread, then send a reply back to the client when complete. This function
     /// understands which replies correspond to each command and uses that information to block
     /// until the command is complete and returns the reply.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the command cannot be sent to the server.
     pub fn send_sync(&self, command: impl AsyncCommand) -> Result<Reply> {
         let reply_matcher = command.reply_matcher();
         let packet = command.into_packet();
@@ -283,6 +295,13 @@ impl Server {
     ///
     /// Sends a command to the SuperCollider server and immediately returns. This method will not
     /// wait for asynchronous commands to complete; for that, see [`send_sync`](Server::send_sync).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// * The command cannot be encoded into an OSC packet.
+    /// * The OSC packet cannot be sent to the server.
     pub fn send(&self, command: impl Command) -> Result<()> {
         log::debug!("send: {:?}", command);
         let packet = command.into_packet();
@@ -334,8 +353,12 @@ impl Server {
     }
 
     /// Clears all scheduled bundles and frees all synths.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the any commands cannot be sent to the server.
     pub fn reset(&self) -> Result<()> {
-        self.send(GroupFreeAll { group_ids: vec![0] })?;
+        self.send(GroupFreeAll::new(vec![0]))?;
         self.send(ClearSched::new())?;
         self.sync()?;
         Ok(())
@@ -344,6 +367,10 @@ impl Server {
     /// Waits for asynchronous commands to complete.
     ///
     /// Blocks until all asynchronous commands started before the current moment complete.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the [`Sync`] command cannot be sent to the server.
     pub fn sync(&self) -> Result<()> {
         self.send_sync(Sync::new(self.next_sync_id()))?;
         Ok(())

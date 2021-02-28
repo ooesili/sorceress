@@ -280,6 +280,14 @@ impl Input for Parameter {
 pub struct Value(pub(crate) VecTree<Scalar>);
 
 impl Value {
+    /// Extracts two channels from a multichannel value.
+    ///
+    /// Takes a value with two channels, perhaps created via multichannel expansion
+    /// or a UGen with two outputs, and returns each channel as a separate `Value`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `Value` does not have exactly two channels.
     pub fn unwrap_stereo(self) -> (Value, Value) {
         match self.0 {
             VecTree::Leaf(_) => panic!("called `VecTree::unwrap_stereo` on a `Scalar` value"),

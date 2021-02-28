@@ -63,9 +63,8 @@
 //! This example plays the opening melody Stravinsky's The Rite of Spring.
 //!
 //! ```no_run
-//! # use anyhow::Result;
 //! use sorceress::{
-//!     server::{self, Control, Server},
+//!     server::{self, Control, Result, Server},
 //!     synthdef::{encoder::encode_synth_defs, Input, SynthDef},
 //!     ugen,
 //! };
@@ -105,7 +104,7 @@
 //!
 //!     // Send the synth definition to the SuperCollider server so that we can make synths
 //!     // using it.
-//!     let encoded_synthdef = encode_synth_defs(vec![sine_wave])?;
+//!     let encoded_synthdef = encode_synth_defs(vec![sine_wave]);
 //!     server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
 //!
 //!     // We launch a single synth and set its pitch multiple times to create a melody. Synth

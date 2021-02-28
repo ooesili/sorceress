@@ -65,7 +65,7 @@ fn verify_synthdefs_against_fixtures(test_synthdefs: Vec<SynthDef>) {
     }
 
     for (name, synthdef) in test_synthdefs.into_iter() {
-        let encoded_synthdef = encode_synth_defs(iter::once(synthdef)).unwrap();
+        let encoded_synthdef = encode_synth_defs(iter::once(synthdef));
 
         let fixture_synthdef = fixture_synthdefs
             .get(&name)

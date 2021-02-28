@@ -57,6 +57,11 @@ use crate::{
 /// moment of retrigger, envelopes will cycle through all of their nodes, with the exception of the
 /// first. The first node is an envelope's initial value and is only output prior to the initial
 /// trigger.
+///
+/// # Panics
+///
+/// Using an `Env` in a UGen will panic if more than one value was given to [`Env::levels`] and an
+/// empty collection was given to [`Env::times`].
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Env {
     loop_node: Option<usize>,

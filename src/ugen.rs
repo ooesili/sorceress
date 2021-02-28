@@ -488,7 +488,7 @@ ugen! {
     /// };
     /// use std::{thread, time::Duration};
     ///
-    /// # fn main() -> anyhow::Result<()> {
+    /// # fn main() -> sorceress::server::Result<()> {
     /// // Declared here because we refer to it multiple times.
     /// let buffer_number = 0;
     ///
@@ -515,7 +515,7 @@ ugen! {
     /// });
     ///
     /// // Send the synth definitions to the server.
-    /// let encoded_synthdef = encode_synth_defs(vec![bubbles, diskout])?;
+    /// let encoded_synthdef = encode_synth_defs(vec![bubbles, diskout]);
     /// server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
     ///
     /// // Start something to record.

@@ -17,7 +17,7 @@
 //! Serializes synth definitions into the format accepted by SuperCollider.
 
 use super::{Parameters, Rate, Scalar, SynthDef, UGenSpec};
-use std::io;
+use std::io::Write;
 use std::sync::Arc;
 
 /// Encodes a set of synth definitions into the [SynthDef2 file format].
@@ -27,7 +27,7 @@ use std::sync::Arc;
 ///
 /// [SynthDef2 file format]: https://doc.sccode.org/Reference/Synth-Definition-File-Format.html
 ///
-/// # Examples:
+/// # Examples
 ///
 /// ```
 /// use sorceress::{
@@ -36,10 +36,9 @@ use std::sync::Arc;
 /// };
 ///
 /// let synth_def = SynthDef::new("example", |_| Out::ar().channels(SinOsc::ar().freq(440)));
-/// let encoded_file = encode_synth_defs(vec![synth_def])?;
-/// # std::io::Result::Ok(())
+/// let encoded_file = encode_synth_defs(vec![synth_def]);
 /// ```
-pub fn encode_synth_defs(synth_defs: impl IntoIterator<Item = SynthDef>) -> io::Result<Vec<u8>> {
+pub fn encode_synth_defs(synth_defs: impl IntoIterator<Item = SynthDef>) -> Vec<u8> {
     let expanded_synths = synth_defs
         .into_iter()
         .map(|synthdef| {
@@ -56,9 +55,8 @@ pub fn encode_synth_defs(synth_defs: impl IntoIterator<Item = SynthDef>) -> io::
         .collect();
 
     let mut buffer = Vec::new();
-    encode_graphs(graphs, &mut buffer)?;
-
-    Ok(buffer)
+    encode_graphs(graphs, &mut buffer);
+    buffer
 }
 
 struct SynthDefGraph<'a> {
@@ -182,78 +180,75 @@ struct VariantSpec<'a> {
     parameter_values: Vec<f32>,
 }
 
-fn encode_graphs<W: io::Write>(graphs: Vec<SynthDefGraph>, out: &mut W) -> io::Result<()>
-where {
+fn encode_graphs(graphs: Vec<SynthDefGraph>, out: &mut Vec<u8>) {
     let header: i32 = 0x53436766; // hex("SCgf")
-    write_i32(out, header)?;
+    write_i32(out, header);
 
     let file_version: i32 = 2;
-    write_i32(out, file_version)?;
+    write_i32(out, file_version);
 
-    write_i16(out, graphs.len() as i16)?;
+    write_i16(out, graphs.len() as i16);
     for graph in graphs {
-        write_pstring(out, &graph.name)?;
-        write_i32(out, graph.constants.len() as i32)?;
+        write_pstring(out, &graph.name);
+        write_i32(out, graph.constants.len() as i32);
         for constant in graph.constants {
-            write_f32(out, constant.0)?;
+            write_f32(out, constant.0);
         }
 
-        write_i32(out, graph.initial_parameter_values.len() as i32)?;
+        write_i32(out, graph.initial_parameter_values.len() as i32);
         for initial_value in graph.initial_parameter_values.iter() {
-            write_f32(out, *initial_value)?;
+            write_f32(out, *initial_value);
         }
 
-        write_i32(out, graph.parameter_names.len() as i32)?;
+        write_i32(out, graph.parameter_names.len() as i32);
         for (parameter_name, parameter_index) in graph.parameter_names.iter() {
-            write_pstring(out, &parameter_name)?;
-            write_i32(out, *parameter_index as i32)?;
+            write_pstring(out, &parameter_name);
+            write_i32(out, *parameter_index as i32);
         }
 
-        write_i32(out, graph.ugens.len() as i32)?;
+        write_i32(out, graph.ugens.len() as i32);
         for ugen_spec in graph.ugens.into_iter().map(|u| u.spec) {
-            write_pstring(out, ugen_spec.name)?;
-            write_i8(out, ugen_spec.rate)?;
-            write_i32(out, ugen_spec.input_specs.len() as i32)?;
-            write_i32(out, ugen_spec.output_specs.len() as i32)?;
-            write_i16(out, ugen_spec.special_index)?;
+            write_pstring(out, ugen_spec.name);
+            write_i8(out, ugen_spec.rate);
+            write_i32(out, ugen_spec.input_specs.len() as i32);
+            write_i32(out, ugen_spec.output_specs.len() as i32);
+            write_i16(out, ugen_spec.special_index);
             for (i, j) in ugen_spec.input_specs {
-                write_i32(out, i)?;
-                write_i32(out, j)?;
+                write_i32(out, i);
+                write_i32(out, j);
             }
             for output_spec in ugen_spec.output_specs {
-                write_i8(out, output_spec)?;
+                write_i8(out, output_spec);
             }
         }
 
-        write_i16(out, graph.variant_specs.len() as i16)?;
+        write_i16(out, graph.variant_specs.len() as i16);
         for variant_spec in graph.variant_specs {
-            write_pstring(out, variant_spec.name)?;
+            write_pstring(out, variant_spec.name);
             for parameter_value in variant_spec.parameter_values {
-                write_f32(out, parameter_value)?;
+                write_f32(out, parameter_value);
             }
         }
     }
-
-    Ok(())
 }
 
-fn write_i32<W: io::Write>(w: &mut W, n: i32) -> io::Result<usize> {
-    w.write(&n.to_be_bytes())
+fn write_i32(w: &mut Vec<u8>, n: i32) {
+    w.write(&n.to_be_bytes()).unwrap();
 }
 
-fn write_i16<W: io::Write>(w: &mut W, n: i16) -> io::Result<usize> {
-    w.write(&n.to_be_bytes())
+fn write_i16(w: &mut Vec<u8>, n: i16) {
+    w.write(&n.to_be_bytes()).unwrap();
 }
 
-fn write_i8<W: io::Write>(w: &mut W, n: i8) -> io::Result<usize> {
-    w.write(&n.to_be_bytes())
+fn write_i8(w: &mut Vec<u8>, n: i8) {
+    w.write(&n.to_be_bytes()).unwrap();
 }
 
-fn write_f32<W: io::Write>(w: &mut W, n: f32) -> io::Result<usize> {
-    w.write(&n.to_be_bytes())
+fn write_f32(w: &mut Vec<u8>, n: f32) {
+    w.write(&n.to_be_bytes()).unwrap();
 }
 
-fn write_pstring<W: io::Write>(w: &mut W, s: &str) -> io::Result<usize> {
-    w.write_all(&[s.len() as u8])?;
-    w.write(s.as_bytes())
+fn write_pstring(w: &mut Vec<u8>, s: &str) {
+    w.write_all(&[s.len() as u8]).unwrap();
+    w.write(s.as_bytes()).unwrap();
 }
