@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! A Rust environment for making music and sounds with
+//! A Rust environment for sound synthesis and algorithmic composition, powered by
 //! [SuperCollider](https://supercollider.github.io/).
 //!
 //! # Introduction
@@ -216,8 +216,8 @@
 //!   excellent for iterating on musical pieces. Rust presents a unique challenge in this area, as
 //!   code cannot as easily be replaced during runtime. A similar workflow can still be achieved in
 //!   Rust using a preemptible scheduler that can be paused and resumed when a new version of the
-//!   code successfully compiles. If Add compilation triggered by filesystem notifications, we can
-//!   create a streamlined creative workflow for creating music with Rust.
+//!   code successfully compiles. If we add compilation triggered by filesystem notifications, we
+//!   can create a streamlined creative workflow for creating music with Rust.
 //!
 //! [Server Command Reference]: https://doc.sccode.org/Reference/Server-Command-Reference.html
 //! [Getting Started With SuperCollider]: https://doc.sccode.org/Tutorials/Getting-Started/01-Introductory-Remarks.html
