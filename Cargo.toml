@@ -10,6 +10,12 @@ keywords = ["audio", "bindings", "creative", "music", "supercollider"]
 categories = ["api-bindings", "multimedia::audio"]
 edition = "2018"
 
+exclude = [
+  "assets/*",
+  "default.nix",
+  "nix/*",
+]
+
 [dependencies]
 rosc = "0.4.2"
 log = "0.4.14"
