@@ -847,10 +847,10 @@ impl BufferAllocateRead {
     ///
     /// * `buffer_number` - The buffer number.
     /// * `file_path` - The path to a sound file on the SuperCollider server's filesystem.
-    pub fn new(buffer_number: i32, file_path: impl AsRef<str>) -> BufferAllocateRead {
+    pub fn new(buffer_number: i32, file_path: impl Into<String>) -> BufferAllocateRead {
         BufferAllocateRead {
             buffer_number,
-            file_path: file_path.as_ref().to_owned(),
+            file_path: file_path.into(),
             starting_frame: 0,
             number_of_frames: 0,
             on_completion: None,
@@ -924,10 +924,10 @@ impl BufferRead {
     ///
     /// * `buffer_number` - The buffer number.
     /// * `file_path` - The path to a sound file on the SuperCollider server's filesystem.
-    pub fn new(buffer_number: i32, file_path: impl AsRef<str>) -> BufferRead {
+    pub fn new(buffer_number: i32, file_path: impl Into<String>) -> BufferRead {
         BufferRead {
             buffer_number,
-            file_path: file_path.as_ref().to_owned(),
+            file_path: file_path.into(),
             file_starting_frame: 0,
             number_of_frames: -1,
             buffer_starting_frame: 0,
@@ -1456,10 +1456,10 @@ impl SynthDefFree {
     pub fn new<I, S>(names: I) -> SynthDefFree
     where
         I: IntoIterator<Item = S>,
-        S: AsRef<str>,
+        S: Into<String>,
     {
         SynthDefFree {
-            names: names.into_iter().map(|s| s.as_ref().to_owned()).collect(),
+            names: names.into_iter().map(|s| s.into()).collect(),
         }
     }
 }
@@ -1587,9 +1587,9 @@ impl SynthNew {
     /// * `synthdef_name` - The name of the synth definition to use.
     /// * `add_target_id` - The ID used by [`add_action`](SynthNew::add_action). See [`AddAction`]
     ///   for more details.
-    pub fn new(synthdef_name: impl AsRef<str>, add_target_id: i32) -> SynthNew {
+    pub fn new(synthdef_name: impl Into<String>, add_target_id: i32) -> SynthNew {
         SynthNew {
-            synthdef_name: synthdef_name.as_ref().to_owned(),
+            synthdef_name: synthdef_name.into(),
             synth_id: -1,
             add_target_id,
             controls: Vec::new(),
@@ -1725,13 +1725,13 @@ impl BufferWrite {
     /// * `header_format` - The header format of the resulting audio file.
     pub fn new(
         buffer_number: i32,
-        file_path: impl AsRef<str>,
+        file_path: impl Into<String>,
         header_format: HeaderFormat,
         sample_format: SampleFormat,
     ) -> BufferWrite {
         BufferWrite {
             buffer_number,
-            file_path: file_path.as_ref().to_owned(),
+            file_path: file_path.into(),
             header_format,
             sample_format,
             number_of_frames: -1,
