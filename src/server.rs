@@ -179,6 +179,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+// TODO: graceful server shutdown and change documentation on `Server::subscribe` to say that the
+// sender can be dropped and receiving code should act accordingly.
+
 /// A SuperCollider server.
 ///
 /// `Server` is safe to clone and use concurrently by multiple threads. See [the module level
@@ -399,7 +402,7 @@ impl error::Error for Error {
 }
 
 /// An add action on the [`SynthNew`] command.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AddAction {
     /// Add the new node to the the head of the group specified by the add target ID.
     HeadOfGroup = 0,
@@ -413,10 +416,17 @@ pub enum AddAction {
     ReplaceNode = 4,
 }
 
+impl Default for AddAction {
+    /// Returns `AddAction::HeadOfGroup`.
+    fn default() -> AddAction {
+        AddAction::HeadOfGroup
+    }
+}
+
 /// A synth control's ID and value pair.
 ///
 /// Used to set initial values for controls when creating new synths with [`SynthNew`].
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Control {
     id: ControlID,
     value: ControlValue,
@@ -438,7 +448,7 @@ impl Control {
 /// A range of adjacent synth controls.
 ///
 /// Specifies values for a range of adjacent controls. Used in [`SynthNew`] and [`NodeSet`].
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct ControlRange {
     start_id: ControlID,
     values: Vec<ControlValue>,
@@ -494,7 +504,7 @@ impl From<Control> for ControlRange {
 ///
 /// The controls in a synth definition can be identified by their number or by name. Used when
 /// creating [`Control`] values.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ControlID {
     Index(i32),
     Name(String),
@@ -530,7 +540,7 @@ impl ControlID {
 /// The value of a synth definition's control.
 ///
 /// Used when creating [`Control`] values.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ControlValue {
     /// Specifies an constant integer value.
     Int(i32),
@@ -572,7 +582,7 @@ impl ControlValue {
 ///
 /// An bundle contains zero or more [`Command`] values and and a time tag. The contained commands
 /// should be applied at the given time tag.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Bundle(OscBundle);
 
 impl Bundle {
@@ -633,7 +643,7 @@ pub trait AsyncCommand: Command {
 /// Quit program. Exits the synthesis server.
 ///
 /// **Asynchronous**. Replies to the sender with [`Reply::Done`] just before completion.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Quit {
     // This prevents the struct from being instantiated directly so that we can give all commands a
     // uniform API with constructors called `new`.
@@ -672,7 +682,7 @@ impl AsyncCommand for Quit {
 /// new one.  Clients can use this ID in multi-client situations to avoid conflicts when
 /// allocating resources such as node IDs, bus indices, and buffer numbers. `max_logins` is
 /// only returned when the client ID argument is supplied in this command.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Notify {
     setting: NotifySetting,
     client_id: Option<i32>,
@@ -723,7 +733,7 @@ impl AsyncCommand for Notify {
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::BufferAllocateDone`] message containing
 /// the same buffer number specified in this command when complete.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BufferAllocate {
     buffer_number: i32,
     number_of_frames: i32,
@@ -794,7 +804,7 @@ impl AsyncCommand for BufferAllocate {
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::BufferAllocateReadDone`] message
 /// containing the same buffer number specified in this command when complete.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BufferAllocateRead {
     buffer_number: i32,
     file_path: String,
@@ -871,7 +881,7 @@ impl AsyncCommand for BufferAllocateRead {
 /// starting frame in the buffer. If number of frames is less than zero, the entire file is read.
 /// If reading a file to be used by the `DiskIn` UGen then you will want to set `leave_file_open`
 /// to one, otherwise set it to zero.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BufferRead {
     buffer_number: i32,
     file_path: String,
@@ -965,7 +975,7 @@ impl AsyncCommand for BufferRead {
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::BufferCloseDone`] message when
 /// complete.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BufferClose {
     buffer_number: i32,
     on_completion: Option<Vec<u8>>,
@@ -1019,7 +1029,7 @@ impl AsyncCommand for BufferClose {
 /// Replies to the sender with a [`Reply::BufferInfo`] message containing information on each
 /// buffer specified in the command. See the documentation of [`Reply::BufferInfo`] and
 /// [`BufferInfo`] for more details.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BufferQuery {
     buffer_numbers: Vec<i32>,
 }
@@ -1066,7 +1076,7 @@ impl AsyncCommand for BufferQuery {
 /// to a background thread to complete so as not to steal CPU time from the audio synthesis thread.
 /// All asynchronous commands send a reply to the client when they complete. `Reply` enumerates all
 /// of the possible asynchronous replies.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum Reply {
     /// Sent in reponse to asynchronous commands where no additional information is required.
@@ -1263,7 +1273,7 @@ impl Reply {
 /// A setting on [`Notify`].
 ///
 /// See the documentation on [`Notify`] for an explanation.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NotifySetting {
     /// Start sending notifications to the sender.
     Start = 1,
@@ -1283,7 +1293,7 @@ pub enum NotifySetting {
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::Synced`] containing the sent unique ID
 /// message when complete.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Sync {
     id: i32,
 }
@@ -1321,7 +1331,7 @@ impl AsyncCommand for Sync {
 /// Clear all scheduled bundles.
 ///
 /// Removes all bundles from the scheduling queue.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct ClearSched {
     // This prevents the struct from being instantiated directly so that we can give all commands a
     // uniform API with constructors called `new`.
@@ -1355,7 +1365,7 @@ impl Command for ClearSched {
 /// same names are overwritten.
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::Done`] message when complete.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SynthDefRecv {
     data: Vec<u8>,
     on_completion: Option<Vec<u8>>,
@@ -1405,7 +1415,7 @@ impl AsyncCommand for SynthDefRecv {
 /// Removes a synth definition by name. The definition is removed immediately, and SuperCollider
 /// does not wait for synth nodes based on that definition to end. Multiple synth definition names
 /// may be specified in a single command.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SynthDefFree {
     names: Vec<String>,
 }
@@ -1443,7 +1453,7 @@ impl Command for SynthDefFree {
 /// Stops a node abruptly, removes it from its group, and frees its memory. Multiple node IDs may
 /// be specified in a single command. Using this method can cause a click if the node is not silent
 /// at the time it is freed.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct NodeFree {
     node_ids: Vec<i32>,
 }
@@ -1472,7 +1482,7 @@ impl Command for NodeFree {
 ///
 /// Takes a list of pairs of control IDs and values and sets the controls to those values. If the
 /// node is a group, then it sets the controls of every node in the group.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct NodeSet {
     node_id: i32,
     controls: Vec<ControlRange>,
@@ -1533,7 +1543,7 @@ impl Command for NodeSet {
 /// control information they need from arguments and buses or messages directed to their group. In
 /// addition no notifications are sent when there are changes of state for this node, such as
 /// `/go`, `/end`, `/on`, or `/off`.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SynthNew {
     synthdef_name: String,
     synth_id: i32,
@@ -1556,7 +1566,7 @@ impl SynthNew {
             synth_id: -1,
             add_target_id,
             controls: Vec::new(),
-            add_action: AddAction::HeadOfGroup,
+            add_action: AddAction::default(),
         }
     }
 
@@ -1619,7 +1629,7 @@ impl Command for SynthNew {
 ///
 /// Frees all nodes in a group, releasing their IDs. Multiple groups may be specified in a single
 /// command.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct GroupFreeAll {
     group_ids: Vec<i32>,
 }
@@ -1666,7 +1676,7 @@ impl Command for GroupFreeAll {
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::BufferWriteDone`] message when
 /// complete.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BufferWrite {
     buffer_number: i32,
     file_path: String,
@@ -1765,7 +1775,7 @@ impl AsyncCommand for BufferWrite {
 /// Frees buffer space allocated for this buffer and releases its ID.
 ///
 /// **Asynchronous**. Replies to the sender with a [`Reply::BufferFreeDone`] message when complete.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BufferFree {
     buffer_number: i32,
     on_completion: Option<Vec<u8>>,
@@ -1819,7 +1829,7 @@ impl AsyncCommand for BufferFree {
 //
 
 /// Information on a specific buffer as obtained by [`BufferQuery`].
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct BufferInfo {
     /// The buffer number.
     pub buffer_number: i32,
@@ -1837,7 +1847,7 @@ pub struct BufferInfo {
 /// An audio file header format.
 ///
 /// This is used by the [`BufferWrite`] command.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum HeaderFormat {
     Aiff,
     Next,
@@ -1861,7 +1871,7 @@ impl fmt::Display for HeaderFormat {
 /// An audio file sample format.
 ///
 /// This is used by the [`BufferWrite`] command.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SampleFormat {
     Int8,
     Int16,

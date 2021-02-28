@@ -45,7 +45,7 @@ pub mod encoder;
 /// A named synth definition.
 ///
 /// Synth definitions are used by SuperCollider to create new synths.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SynthDef {
     name: String,
     graph: VecTree<Scalar>,
@@ -99,7 +99,7 @@ impl SynthDef {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub(crate) struct UGenSpec<Input> {
     pub name: String,
     pub rate: Rate,
@@ -125,6 +125,7 @@ impl From<Rate> for i8 {
 ///
 /// A number of UGens implement "done actions". These allow one to optionally free or pause the
 /// enclosing synth and other related nodes when the UGen is finished.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DoneAction {
     /// Do nothing when the UGen is finished.
     None = 0,
@@ -160,13 +161,19 @@ pub enum DoneAction {
     FreeSelfResumeNext = 15,
 }
 
+impl Default for DoneAction {
+    fn default() -> DoneAction {
+        DoneAction::None
+    }
+}
+
 impl Input for DoneAction {
     fn into_value(self) -> Value {
         (self as i32).into_value()
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub(crate) enum Scalar {
     Const(f32),
     Parameter(Parameter),
@@ -193,7 +200,7 @@ impl Scalar {
 ///
 /// A value of this type is passed to the `ugen_fn` closure given to [`SynthDef::new`]. See
 /// [`SynthDef::new`] for more details.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Parameters {
     initial_values: Vec<f32>,
     names: Vec<(String, usize)>,
@@ -238,7 +245,7 @@ impl Parameters {
 ///     })
 /// }
 /// ```
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Parameter {
     index: usize,
 }
@@ -269,7 +276,7 @@ impl Input for Parameter {
 /// *UGens* are the building blocks of synth definitions. UGens are primitives that generate and
 /// process audio and control signals. SuperCollider provides hundreds of UGens, all of which can
 /// be found in the [`ugen`](super::ugen) module.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Value(pub(crate) VecTree<Scalar>);
 
 impl Value {

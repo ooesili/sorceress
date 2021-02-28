@@ -57,6 +57,7 @@ use crate::{
 /// moment of retrigger, envelopes will cycle through all of their nodes, with the exception of the
 /// first. The first node is an envelope's initial value and is only output prior to the initial
 /// trigger.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Env {
     loop_node: Option<usize>,
     release_node: Option<usize>,
@@ -239,7 +240,7 @@ impl Default for Env {
             release_node: None,
             levels: vec![0.into_value(), 1.into_value(), 0.into_value()],
             times: vec![1.into_value(), 1.into_value()],
-            curve: CurveInput::from(Curve::Linear),
+            curve: CurveInput::from(Curve::default()),
         }
     }
 }
@@ -254,7 +255,7 @@ fn node_index_to_value(index: Option<usize>) -> Value {
 /// The curve of an envelope segment.
 ///
 /// See [`Env::curve`] for more details.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Curve {
     /// Flat segments (immediately jumps to final value).
     Step,
@@ -278,9 +279,17 @@ pub enum Curve {
     Curve(Value),
 }
 
+impl Default for Curve {
+    /// Returns [`Curve::Linear`].
+    fn default() -> Curve {
+        Curve::Linear
+    }
+}
+
 /// An input to [`Env::curve`].
 ///
 /// See [`Env::curve`] for more details.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct CurveInput(VecTree<ExpandedCurve>);
 
 impl<T> From<Vec<T>> for CurveInput
@@ -322,7 +331,7 @@ impl From<i32> for CurveInput {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 enum ExpandedCurve {
     Step,
     Linear,

@@ -39,7 +39,7 @@ pub fn decode<R: Read>(read: R) -> Result<SynthDefFile> {
 }
 
 /// The root of a decoded synth definition file.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SynthDefFile {
     /// Four byte file type id containing the ASCII characters: "SCgf".
     ///
@@ -71,7 +71,7 @@ impl SynthDefFile {
 }
 
 /// A decoded synth definition.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SynthDef {
     /// The name of the synth definition.
     pub name: String,
@@ -145,7 +145,7 @@ impl SynthDef {
 /// A named parameter.
 ///
 /// Parameter names allow controls to be referenced by name in adition to their index.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ParameterName {
     /// The name of the parameter.
     pub value: String,
@@ -155,7 +155,7 @@ pub struct ParameterName {
 }
 
 /// The specification of a unit generator.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct UGenSpec {
     /// The class name of the unit generator.
     ///
@@ -219,7 +219,7 @@ impl UGenSpec {
 }
 
 /// An input to a UGen.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Input {
     /// An input that refers to the output of another UGen.
     UGen { index: usize, output_index: usize },
@@ -229,7 +229,7 @@ pub enum Input {
 }
 
 /// An alternate set of default parameters for a synth definition.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct VariantSpec {
     /// The name of the variant.
     pub name: String,

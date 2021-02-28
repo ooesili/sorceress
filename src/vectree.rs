@@ -22,7 +22,7 @@
 
 use std::convert::From;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VecTree<T> {
     Leaf(T),
     Branch(Vec<VecTree<T>>),

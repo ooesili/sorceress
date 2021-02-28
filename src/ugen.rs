@@ -87,7 +87,7 @@ macro_rules! ugen {
         options: { $( $option:ident: $option_value:tt ),* }
     } ) => {
         $(#[$struct_meta])*
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, Clone, PartialEq, PartialOrd)]
         pub struct $name {
             rate: Rate,
             $( $input: Value, )*
@@ -198,6 +198,7 @@ ugen! {
 // For a more concise combination of name, default value and lag, see [NamedControl]
 //
 // TODO: port Control examples from SuperCollider docs
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Control {
     rate: Rate,
     values: Vec<Value>,
@@ -649,6 +650,7 @@ macro_rules! simple_setter {
 /// [Getting Started]: https://doc.sccode.org/Tutorials/Getting-Started/00-Getting-Started-With-SC.html
 /// [Order of execution]: https://doc.sccode.org/Guides/Order-of-execution.html
 /// [Server Architecture]: https://doc.sccode.org/Reference/Server-Architecture.html
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct In {
     rate: Rate,
     bus: Value,
@@ -706,6 +708,7 @@ impl Input for In {
 /// Plays back break point envelopes. The envelopes are instances of the Env class. The envelope
 /// and the arguments for levelScale, levelBias, and timeScale are polled when the EnvGen is
 /// triggered and remain constant for the duration of the envelope.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct EnvGen {
     rate: Rate,
     envelope: Env,
@@ -825,6 +828,7 @@ impl Input for EnvGen {
 ///
 /// * `number_of_channels` - Number of channels that the buffer will be. This must be a fixed
 ///   integer. The architecture of the synth definition cannot change after it is compiled.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct PlayBuf {
     ugen_rate: Rate,
     number_of_channels: usize,
@@ -922,6 +926,7 @@ impl Input for PlayBuf {
 /// `SoundIn` is a convenience UGen to read audio from the input of your computer or soundcard. It
 /// is a wrapper UGen based on [`In`], which offsets the index such that `0` will always correspond
 /// to the first input regardless of the number of inputs present.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SoundIn {
     bus: Value,
 }
@@ -997,6 +1002,7 @@ impl Input for SoundIn {
 /// Continuously play a longer sound file from disk.
 ///
 /// This requires a buffer to be preloaded with one buffer size of sound.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct DiskIn {
     number_of_channels: usize,
     buffer_number: Value,
