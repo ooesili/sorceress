@@ -6,7 +6,7 @@ pkgs.rustPlatform.buildRustPackage {
   pname = "sorceress";
   version = "0.0.1";
 
-  cargoSha256 = "1yipzyrw1ww4yadrxn7xb36slz92baamcsb541qvlnbpavld57kh";
+  cargoSha256 = "0ii2hk4nvfsxn9ws8836jdhjpx1j9gmlmdsbgvp7p2bn4hiacdjm";
   nativeBuildInputs = [ supercollider ];
   src = pkgs.lib.cleanSource ./.;
 }
