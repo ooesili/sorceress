@@ -32,19 +32,6 @@ use std::{
 
 const SYNTH_DEF_2_TYPE_ID: i32 = 0x53436766; // hex("SCgf")
 
-/// Decodes a synth definition file.
-///
-/// See [the module level documentation](self) for more.
-///
-/// # Errors
-///
-/// * Returns [`Error::IO`] if the function encounters an I/O error reading the input.
-/// * Returns [`Error::BadTypeID`] if the type ID field in the file header is incorrect.
-pub fn decode_synthdef_file<R: Read>(read: R) -> Result<SynthDefFile> {
-    let mut scanner = Scanner(read);
-    SynthDefFile::new(&mut scanner)
-}
-
 /// The root of a decoded synth definition file.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SynthDefFile {
@@ -61,6 +48,19 @@ pub struct SynthDefFile {
 }
 
 impl SynthDefFile {
+    /// Decodes a synth definition file.
+    ///
+    /// See [the module level documentation](self) for more.
+    ///
+    /// # Errors
+    ///
+    /// * Returns [`Error::IO`] if the function encounters an I/O error reading the input.
+    /// * Returns [`Error::BadTypeID`] if the type ID field in the file header is incorrect.
+    pub fn decode<R: Read>(read: R) -> Result<SynthDefFile> {
+        let mut scanner = Scanner(read);
+        SynthDefFile::new(&mut scanner)
+    }
+
     fn new<R: Read>(scanner: &mut Scanner<R>) -> Result<Self> {
         let type_id = scanner.scan_i32()?;
         if type_id != SYNTH_DEF_2_TYPE_ID {
