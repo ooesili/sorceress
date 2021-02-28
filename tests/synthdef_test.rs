@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use sorceress::{
-    synthdef::{decoder::decode, encoder::encode_synth_defs, Input, SynthDef},
+    synthdef::{decoder::decode_synthdef_file, encoder::encode_synth_defs, Input, SynthDef},
     ugen,
 };
 use std::{
@@ -106,7 +106,8 @@ fn load_fixture_synthdefs() -> HashMap<String, Vec<u8>> {
 }
 
 fn compare(lhs: &[u8], rhs: &[u8], name: &str) {
-    let format = |synthdef: &[u8]| denorm::SynthDefFile::new(&decode(synthdef).unwrap());
+    let format =
+        |synthdef: &[u8]| denorm::SynthDefFile::new(&decode_synthdef_file(synthdef).unwrap());
     assert_eq!(
         format(&lhs),
         format(&rhs),

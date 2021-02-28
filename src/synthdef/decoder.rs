@@ -16,11 +16,11 @@
 
 //! A synth definition file format decoder.
 //!
-//! This module provides the [`decode`] function which decodes a file in the [synth defintiion file
-//! format] into a [data structure](). In most applications synth defintiion files are encoded from
-//! in-memory data structures and decoded by the SuperCollider server, so this module will not be
-//! needed. Decoding is primarily useful for converting synth defintiion files into a human
-//! readable format when debugging synth defintiions.
+//! This module provides the [`decode_synthdef_file`] function which decodes a file in the [synth
+//! defintiion file format] into a [data structure](). In most applications synth defintiion files
+//! are encoded from in-memory data structures and decoded by the SuperCollider server, so this
+//! module will not be needed. Decoding is primarily useful for converting synth defintiion files
+//! into a human readable format when debugging synth defintiions.
 //!
 //! [synth defintiion file format]: https://doc.sccode.org/Reference/Synth-Definition-File-Format.html
 
@@ -33,7 +33,7 @@ use std::{
 const SYNTH_DEF_2_TYPE_ID: i32 = 0x53436766; // hex("SCgf")
 
 /// Decodes a synth definition file.
-pub fn decode<R: Read>(read: R) -> Result<SynthDefFile> {
+pub fn decode_synthdef_file<R: Read>(read: R) -> Result<SynthDefFile> {
     let mut scanner = Scanner(read);
     SynthDefFile::new(&mut scanner)
 }
