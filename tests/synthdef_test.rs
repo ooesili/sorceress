@@ -47,6 +47,14 @@ fn test_synthdefs() {
             .channels(ugen::In::ar().bus(0).number_of_channels(2))
     }));
 
+    test_synthdefs.push(SynthDef::new("mouse", |_| {
+        ugen::Out::ar().channels(
+            ugen::SinOsc::ar()
+                .freq(ugen::MouseX::kr().minval(1).maxval(5))
+                .mul(ugen::MouseY::kr()),
+        )
+    }));
+
     verify_synthdefs_against_fixtures(test_synthdefs)
 }
 

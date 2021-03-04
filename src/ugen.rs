@@ -261,6 +261,62 @@ ugen! {
 }
 
 ugen! {
+    /// Cursor tracking UGen.
+    ///
+    /// Tracks the x coordinate of the mouse position.
+    MouseX[kr] {
+        inputs: {
+            /// Value corresponding to the left edge of the screen.
+            minval: f32 = 0.0,
+
+            /// Value corresponding to the right edge of the screen.
+            maxval: f32 = 1.0,
+
+            /// Mapping curve. 0 is linear, 1 is exponential (e. g. for frequency or times).
+            /// Alternatively you can specify: [`MouseWarp::Linear`] or [`MouseWarp::Exponential`].
+            warp: f32 = 0.0,
+
+            /// Lag factor to dezipper cursor movement.
+            lag: f32 = 0.2
+        }
+    }
+}
+
+ugen! {
+    /// Cursor tracking UGen.
+    ///
+    /// Tracks the x coordinate of the mouse position.
+    MouseY[kr] {
+        inputs: {
+            /// Value corresponding to the left edge of the screen.
+            minval: f32 = 0.0,
+
+            /// Value corresponding to the right edge of the screen.
+            maxval: f32 = 1.0,
+
+            /// Mapping curve. 0 is linear, 1 is exponential (e. g. for frequency or times).
+            /// Alternatively you can specify: [`MouseWarp::Linear`] or [`MouseWarp::Exponential`].
+            warp: f32 = 0.0,
+
+            /// Lag factor to dezipper cursor movement.
+            lag: f32 = 0.2
+        }
+    }
+}
+
+/// The warp value of the [`MouseX`] and [`MouseY`] UGens.
+pub enum MouseWarp {
+    Linear = 0,
+    Exponential = 1,
+}
+
+impl Input for MouseWarp {
+    fn into_value(self) -> Value {
+        (self as i16 as f32).into_value()
+    }
+}
+
+ugen! {
     /// Comb delay line with no interpolation.
     ///
     /// See also [`CombLwhich`] uses linear interpolation, and [`CombC`] which uses cubic
