@@ -49,22 +49,22 @@ macro_rules! ugen_rate_constructor {
 
 macro_rules! ugen_set_value {
     ( $spec:ident, $ugen:ident, multi, $input:ident ) => {
-        $spec.inputs.push(UGenInput::Multi($ugen.$input));
+        $spec = $spec.input(UGenInput::Multi($ugen.$input));
     };
     ( $spec:ident, $ugen:ident, $t:ty, $input:ident ) => {
-        $spec.inputs.push(UGenInput::Simple($ugen.$input));
+        $spec = $spec.input(UGenInput::Simple($ugen.$input));
     };
 }
 
 macro_rules! ugen_set_option {
     ( $spec:ident, $ugen:ident, num_outputs, $count:expr) => {
-        $spec.outputs = vec![$ugen.rate; $count];
+        $spec = $spec.outputs(vec![$ugen.rate; $count]);
     };
     ( $spec:ident, $ugen:ident, special_index, $index:expr) => {
-        $spec.special_index = $index;
+        $spec = $spec.special_index($index);
     };
     ( $spec:ident, $ugen:ident, signal_range, $signal_range:expr) => {
-        $spec.signal_range = $signal_range;
+        $spec = $spec.signal_range($signal_range);
     };
 }
 
@@ -117,15 +117,7 @@ macro_rules! ugen {
 
         impl Input for $name {
             fn into_value(self) -> Value {
-                let mut _spec = UGenSpec {
-                    name: stringify!($name).to_owned(),
-                    rate: self.rate,
-                    special_index: 0,
-                    signal_range: SignalRange::Bipolar,
-                    inputs: vec![],
-                    outputs: vec![self.rate],
-                };
-
+                let mut _spec = UGenSpec::new(stringify!($name), self.rate);
                 $( ugen_set_value!(_spec, self, $type, $input); )*
                 $( ugen_set_option!(_spec, self, $option, $option_value); )*
                 _spec.into_value()
@@ -248,15 +240,10 @@ impl Control {
 
 impl Input for Control {
     fn into_value(self) -> Value {
-        UGenSpec {
-            name: "Control".to_owned(),
-            rate: self.rate,
-            signal_range: SignalRange::Bipolar,
-            special_index: 0,
-            inputs: self.values.into_iter().map(UGenInput::Simple).collect(),
-            outputs: vec![Rate::Audio],
-        }
-        .into_value()
+        UGenSpec::new("Control", self.rate)
+            .inputs(self.values.into_iter().map(UGenInput::Simple))
+            .outputs(vec![Rate::Audio])
+            .into_value()
     }
 }
 
@@ -833,15 +820,10 @@ impl In {
 
 impl Input for In {
     fn into_value(self) -> Value {
-        UGenSpec {
-            name: "In".into(),
-            rate: self.rate,
-            signal_range: SignalRange::Bipolar,
-            special_index: 0,
-            inputs: vec![UGenInput::Simple(self.bus)],
-            outputs: vec![self.rate; self.number_of_channels],
-        }
-        .into_value()
+        UGenSpec::new("In", self.rate)
+            .inputs(vec![UGenInput::Simple(self.bus)])
+            .outputs(vec![self.rate; self.number_of_channels])
+            .into_value()
     }
 }
 
@@ -941,25 +923,21 @@ impl EnvGen {
 
 impl Input for EnvGen {
     fn into_value(self) -> Value {
-        let mut spec = UGenSpec {
-            name: "EnvGen".into(),
-            rate: self.rate,
-            signal_range: SignalRange::Bipolar,
-            special_index: 0,
-            inputs: vec![],
-            outputs: vec![self.rate],
-        };
-
-        spec.inputs.push(UGenInput::Simple(self.gate));
-        spec.inputs.push(UGenInput::Simple(self.level_scale));
-        spec.inputs.push(UGenInput::Simple(self.level_bias));
-        spec.inputs.push(UGenInput::Simple(self.time_scale));
-        spec.inputs
-            .push(UGenInput::Simple(self.done_action.into_value()));
-        for value in self.envelope.into_values() {
-            spec.inputs.push(UGenInput::Simple(value));
-        }
-        spec.into_value()
+        UGenSpec::new("EnvGen", self.rate)
+            .inputs(vec![
+                UGenInput::Simple(self.gate),
+                UGenInput::Simple(self.level_scale),
+                UGenInput::Simple(self.level_bias),
+                UGenInput::Simple(self.time_scale),
+                UGenInput::Simple(self.done_action.into_value()),
+            ])
+            .inputs(
+                self.envelope
+                    .into_values()
+                    .into_iter()
+                    .map(UGenInput::Simple),
+            )
+            .into_value()
     }
 }
 
@@ -1045,23 +1023,17 @@ impl PlayBuf {
 
 impl Input for PlayBuf {
     fn into_value(self) -> Value {
-        let mut spec = UGenSpec {
-            name: "PlayBuf".into(),
-            rate: self.ugen_rate,
-            signal_range: SignalRange::Bipolar,
-            special_index: 0,
-            inputs: vec![],
-            outputs: vec![self.ugen_rate; self.number_of_channels],
-        };
-
-        spec.inputs.push(UGenInput::Simple(self.bufnum));
-        spec.inputs.push(UGenInput::Simple(self.rate));
-        spec.inputs.push(UGenInput::Simple(self.trigger));
-        spec.inputs.push(UGenInput::Simple(self.start_pos));
-        spec.inputs.push(UGenInput::Simple(self.loop_buffer));
-        spec.inputs
-            .push(UGenInput::Simple(self.done_action.into_value()));
-        spec.into_value()
+        UGenSpec::new("PlayBuf", self.ugen_rate)
+            .inputs(vec![
+                UGenInput::Simple(self.bufnum),
+                UGenInput::Simple(self.rate),
+                UGenInput::Simple(self.trigger),
+                UGenInput::Simple(self.start_pos),
+                UGenInput::Simple(self.loop_buffer),
+                UGenInput::Simple(self.done_action.into_value()),
+            ])
+            .outputs(vec![self.ugen_rate; self.number_of_channels])
+            .into_value()
     }
 }
 
@@ -1177,17 +1149,12 @@ impl DiskIn {
 
 impl Input for DiskIn {
     fn into_value(self) -> Value {
-        let mut spec = UGenSpec {
-            name: "DiskIn".into(),
-            rate: Rate::Audio,
-            signal_range: SignalRange::Bipolar,
-            special_index: 0,
-            inputs: Vec::with_capacity(2),
-            outputs: vec![Rate::Audio; self.number_of_channels],
-        };
-
-        spec.inputs.push(UGenInput::Simple(self.buffer_number));
-        spec.inputs.push(UGenInput::Simple(self.loop_buffer));
-        spec.into_value()
+        UGenSpec::new("DiskIn", Rate::Audio)
+            .inputs(vec![
+                UGenInput::Simple(self.buffer_number),
+                UGenInput::Simple(self.loop_buffer),
+            ])
+            .outputs(vec![Rate::Audio; self.number_of_channels])
+            .into_value()
     }
 }

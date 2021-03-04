@@ -101,12 +101,50 @@ impl SynthDef {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub(crate) struct UGenSpec<I> {
-    pub name: String,
-    pub rate: Rate,
-    pub signal_range: SignalRange,
-    pub special_index: i16,
-    pub inputs: Vec<I>,
-    pub outputs: Vec<Rate>,
+    name: String,
+    rate: Rate,
+    signal_range: SignalRange,
+    special_index: i16,
+    inputs: Vec<I>,
+    outputs: Vec<Rate>,
+}
+
+impl<I> UGenSpec<I> {
+    pub fn new(name: &'static str, rate: Rate) -> UGenSpec<I> {
+        UGenSpec {
+            name: name.to_owned(),
+            rate,
+            signal_range: SignalRange::Bipolar,
+            special_index: 0,
+            inputs: Vec::new(),
+            outputs: vec![rate],
+        }
+    }
+
+    pub fn signal_range(mut self, signal_range: SignalRange) -> Self {
+        self.signal_range = signal_range;
+        self
+    }
+
+    pub fn special_index(mut self, special_index: i16) -> Self {
+        self.special_index = special_index;
+        self
+    }
+
+    pub fn inputs(mut self, inputs: impl IntoIterator<Item = I>) -> Self {
+        self.inputs.extend(inputs);
+        self
+    }
+
+    pub fn input(mut self, input: I) -> Self {
+        self.inputs.push(input);
+        self
+    }
+
+    pub fn outputs(mut self, outputs: impl IntoIterator<Item = Rate>) -> Self {
+        self.outputs = outputs.into_iter().collect();
+        self
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
@@ -337,14 +375,11 @@ fn bin_op_ugen(special_index: i16, lhs: Value, rhs: Value) -> Value {
         let rate = input_rate(&inputs);
         VecTree::Leaf(Scalar::Ugen {
             output_index: 0,
-            ugen_spec: Arc::new(UGenSpec {
-                name: "BinaryOpUGen".into(),
-                rate,
-                signal_range: SignalRange::Bipolar,
-                special_index,
-                inputs,
-                outputs: vec![rate],
-            }),
+            ugen_spec: Arc::new(
+                UGenSpec::new("BinaryOpUGen", rate)
+                    .special_index(special_index)
+                    .inputs(inputs),
+            ),
         })
     })
 }
@@ -359,14 +394,7 @@ fn mul_add(value: impl Input, mul: impl Input, add: impl Input) -> Value {
         let rate = input_rate(&inputs);
         VecTree::Leaf(Scalar::Ugen {
             output_index: 0,
-            ugen_spec: Arc::new(UGenSpec {
-                name: "MulAdd".to_owned(),
-                rate,
-                signal_range: SignalRange::Bipolar,
-                special_index: 0,
-                inputs,
-                outputs: vec![rate],
-            }),
+            ugen_spec: Arc::new(UGenSpec::new("MulAdd", rate).inputs(inputs)),
         })
     })
 }
@@ -377,14 +405,11 @@ fn unary_op_ugen(special_index: i16, value: Value) -> Value {
         let rate = input_rate(&inputs);
         VecTree::Leaf(Scalar::Ugen {
             output_index: 0,
-            ugen_spec: Arc::new(UGenSpec {
-                name: "UnaryOpUGen".to_owned(),
-                rate,
-                signal_range: SignalRange::Bipolar,
-                special_index,
-                inputs,
-                outputs: vec![rate],
-            }),
+            ugen_spec: Arc::new(
+                UGenSpec::new("UnaryOpUGen", rate)
+                    .special_index(special_index)
+                    .inputs(inputs),
+            ),
         })
     })
 }
