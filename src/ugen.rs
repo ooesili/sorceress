@@ -130,6 +130,26 @@ macro_rules! ugen {
     };
 }
 
+macro_rules! value_setter {
+    ( $(#[$meta:meta])* $field:ident ) => {
+        $(#[$meta])*
+        pub fn $field(mut self, value: impl Input) -> Self {
+            self.$field = value.into_value();
+            self
+        }
+    };
+}
+
+macro_rules! simple_setter {
+    ( $(#[$meta:meta])* $field:ident: $type:ty ) => {
+        $(#[$meta])*
+        pub fn $field(mut self, value: $type) -> Self {
+            self.$field = value;
+            self
+        }
+    };
+}
+
 ugen! {
     /// Two channel equal power pan.
     ///
@@ -438,6 +458,70 @@ ugen! {
     }
 }
 
+/// Phase modulation oscillator pair.
+///
+/// # Required Arguments
+///
+/// * `carfreq` - Carrier frequency in cycles per second.
+/// * `modfreq` - Modulator frequency in cycles per second.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct PMOsc {
+    sin_osc: fn() -> SinOsc,
+    carfreq: Value,
+    modfreq: Value,
+    pmindex: Value,
+    modphase: Value,
+}
+
+impl PMOsc {
+    /// Create a UGen that calculates samples at audio rate.
+    pub fn ar(carfreq: impl Input, modfreq: impl Input) -> PMOsc {
+        PMOsc::new(SinOsc::ar, carfreq, modfreq)
+    }
+
+    /// Create a UGen that calculates samples at control rate.
+    pub fn kr(carfreq: impl Input, modfreq: impl Input) -> PMOsc {
+        PMOsc::new(SinOsc::kr, carfreq, modfreq)
+    }
+
+    fn new(sin_osc: fn() -> SinOsc, carfreq: impl Input, modfreq: impl Input) -> PMOsc {
+        PMOsc {
+            sin_osc,
+            carfreq: carfreq.into_value(),
+            modfreq: modfreq.into_value(),
+            pmindex: 0.0.into_value(),
+            modphase: 0.0.into_value(),
+        }
+    }
+
+    value_setter! {
+        /// Modulation index in radians.
+        ///
+        /// Defaults to `0.0`.
+        pmindex
+    }
+
+    value_setter! {
+        /// A modulation input for the modulator's phase in radians.
+        ///
+        /// Defaults to `0.0`.
+        modphase
+    }
+}
+
+impl Input for PMOsc {
+    fn into_value(self) -> Value {
+        let mod_signal = (self.sin_osc)()
+            .freq(self.modfreq)
+            .phase(self.modphase)
+            .mul(self.pmindex);
+        (self.sin_osc)()
+            .freq(self.carfreq)
+            .phase(mod_signal)
+            .into_value()
+    }
+}
+
 ugen! {
     /// Write a signal to a bus.
     //
@@ -642,26 +726,6 @@ ugen! {
             num_outputs: 1
         }
     }
-}
-
-macro_rules! value_setter {
-    ( $(#[$meta:meta])* $field:ident ) => {
-        $(#[$meta])*
-        pub fn $field(mut self, value: impl Input) -> Self {
-            self.$field = value.into_value();
-            self
-        }
-    };
-}
-
-macro_rules! simple_setter {
-    ( $(#[$meta:meta])* $field:ident: $type:ty ) => {
-        $(#[$meta])*
-        pub fn $field(mut self, value: $type) -> Self {
-            self.$field = value;
-            self
-        }
-    };
 }
 
 /// Read signals from an audio or control bus.
