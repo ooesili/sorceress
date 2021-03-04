@@ -16,7 +16,7 @@
 
 //! Serializes synth definitions into the format accepted by SuperCollider.
 
-use super::{Parameters, Rate, Scalar, SynthDef, UGenSpec};
+use super::{Parameters, Rate, Scalar, SignalRange, SynthDef, UGenSpec};
 use std::io::Write;
 use std::sync::Arc;
 
@@ -83,6 +83,7 @@ impl<'a> SynthDefGraph<'a> {
                 source: Arc::new(UGenSpec {
                     name: "Control".to_owned(),
                     rate: Rate::Audio,
+                    signal_range: SignalRange::Bipolar,
                     special_index: 0,
                     inputs: vec![],
                     outputs: vec![Rate::Control; params.initial_values.len()],

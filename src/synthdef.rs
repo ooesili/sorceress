@@ -100,11 +100,12 @@ impl SynthDef {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub(crate) struct UGenSpec<Input> {
+pub(crate) struct UGenSpec<I> {
     pub name: String,
     pub rate: Rate,
+    pub signal_range: SignalRange,
     pub special_index: i16,
-    pub inputs: Vec<Input>,
+    pub inputs: Vec<I>,
     pub outputs: Vec<Rate>,
 }
 
@@ -339,6 +340,7 @@ fn bin_op_ugen(special_index: i16, lhs: Value, rhs: Value) -> Value {
             ugen_spec: Arc::new(UGenSpec {
                 name: "BinaryOpUGen".into(),
                 rate,
+                signal_range: SignalRange::Bipolar,
                 special_index,
                 inputs,
                 outputs: vec![rate],
@@ -360,6 +362,7 @@ fn mul_add(value: impl Input, mul: impl Input, add: impl Input) -> Value {
             ugen_spec: Arc::new(UGenSpec {
                 name: "MulAdd".to_owned(),
                 rate,
+                signal_range: SignalRange::Bipolar,
                 special_index: 0,
                 inputs,
                 outputs: vec![rate],
@@ -377,6 +380,7 @@ fn unary_op_ugen(special_index: i16, value: Value) -> Value {
             ugen_spec: Arc::new(UGenSpec {
                 name: "UnaryOpUGen".to_owned(),
                 rate,
+                signal_range: SignalRange::Bipolar,
                 special_index,
                 inputs,
                 outputs: vec![rate],
@@ -476,6 +480,35 @@ pub trait Input: Sized {
         unary_op_ugen(18, self.into_value())
     }
 
+    /// Scales the output of this UGen to be within the range of `lo` and `hi`.
+    ///
+    /// This Note that range expects the default output range, and thus should not be used in
+    /// conjunction with mul and add arguments.
+    fn range(self, lo: impl Input, hi: impl Input) -> Value {
+        let value = self.into_value();
+        let lo = lo.into_value();
+        let hi = hi.into_value();
+
+        // TODO: replace clone with with borrowing `.iter()` method
+        let is_unipolar = value.clone().0.into_iter().all(|scalar| {
+            matches!(
+                scalar,
+                Scalar::Ugen { ugen_spec, .. } if ugen_spec.signal_range == SignalRange::Unipolar
+            )
+        });
+
+        let mul;
+        let add;
+        if is_unipolar {
+            mul = hi.sub(lo.clone());
+            add = lo;
+        } else {
+            mul = hi.sub(lo.clone()).mul(0.5);
+            add = mul.clone().add(lo);
+        }
+        value.madd(mul, add)
+    }
+
     // TODO: add all unary operators
 }
 
@@ -506,6 +539,16 @@ impl UGenInput {
             },
         }
     }
+}
+
+/// Describes the output range of a UGen.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub(crate) enum SignalRange {
+    /// Between 0 and 1.
+    Unipolar,
+
+    /// Between -1 and 1.
+    Bipolar,
 }
 
 fn mutlichannel_expand<I, F, U, A, B>(inputs: I, expand_one: F) -> VecTree<Vec<B>>
@@ -557,15 +600,20 @@ where
 
 impl Input for UGenSpec<UGenInput> {
     fn into_value(self) -> Value {
-        let name = self.name;
-        let rate = self.rate;
-        let special_index = self.special_index;
-        let outputs = self.outputs;
+        let UGenSpec {
+            name,
+            rate,
+            signal_range,
+            special_index,
+            inputs,
+            outputs,
+        } = self;
 
-        expand_inputs_with(self.inputs, &mut |inputs| {
+        expand_inputs_with(inputs, &mut |inputs| {
             let ugen_spec = Arc::new(UGenSpec {
                 name: name.clone(),
                 rate,
+                signal_range,
                 special_index,
                 inputs,
                 outputs: outputs.clone(),

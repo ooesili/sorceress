@@ -22,7 +22,7 @@
 
 pub mod envelope;
 
-use crate::synthdef::{DoneAction, Input, Rate, Scalar, UGenInput, UGenSpec, Value};
+use crate::synthdef::{DoneAction, Input, Rate, Scalar, SignalRange, UGenInput, UGenSpec, Value};
 use crate::vectree::VecTree;
 use envelope::Env;
 
@@ -63,6 +63,9 @@ macro_rules! ugen_set_option {
     ( $spec:ident, $ugen:ident, special_index, $index:expr) => {
         $spec.special_index = $index;
     };
+    ( $spec:ident, $ugen:ident, signal_range, $signal_range:expr) => {
+        $spec.signal_range = $signal_range;
+    };
 }
 
 macro_rules! ugen {
@@ -84,7 +87,7 @@ macro_rules! ugen {
             $(#[$input_meta:meta])*
             $input:ident: $type:tt = $default_value:expr
         ),* },
-        options: { $( $option:ident: $option_value:tt ),* }
+        options: { $( $option:ident: $option_value:expr ),* }
     } ) => {
         $(#[$struct_meta])*
         #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -114,10 +117,11 @@ macro_rules! ugen {
 
         impl Input for $name {
             fn into_value(self) -> Value {
-                let mut _spec = UGenSpec{
+                let mut _spec = UGenSpec {
                     name: stringify!($name).to_owned(),
                     rate: self.rate,
                     special_index: 0,
+                    signal_range: SignalRange::Bipolar,
                     inputs: vec![],
                     outputs: vec![self.rate],
                 };
@@ -247,6 +251,7 @@ impl Input for Control {
         UGenSpec {
             name: "Control".to_owned(),
             rate: self.rate,
+            signal_range: SignalRange::Bipolar,
             special_index: 0,
             inputs: self.values.into_iter().map(UGenInput::Simple).collect(),
             outputs: vec![Rate::Audio],
@@ -298,6 +303,10 @@ ugen! {
 
             /// Lag factor to dezipper cursor movement.
             lag: f32 = 0.2
+        },
+
+        options: {
+            signal_range: SignalRange::Unipolar
         }
     }
 }
@@ -320,6 +329,10 @@ ugen! {
 
             /// Lag factor to dezipper cursor movement.
             lag: f32 = 0.2
+        },
+
+        options: {
+            signal_range: SignalRange::Unipolar
         }
     }
 }
@@ -408,6 +421,10 @@ ugen! {
 
             /// Duration of the trigger output.
             duration: f32 = 0.1
+        },
+
+        options: {
+            signal_range: SignalRange::Unipolar
         }
     }
 }
@@ -424,6 +441,10 @@ ugen! {
 
             /// Phase offset in cycles, from `0` to `1`.
             phase: f32 = 0
+        },
+
+        options: {
+            signal_range: SignalRange::Unipolar
         }
     }
 }
@@ -815,6 +836,7 @@ impl Input for In {
         UGenSpec {
             name: "In".into(),
             rate: self.rate,
+            signal_range: SignalRange::Bipolar,
             special_index: 0,
             inputs: vec![UGenInput::Simple(self.bus)],
             outputs: vec![self.rate; self.number_of_channels],
@@ -922,6 +944,7 @@ impl Input for EnvGen {
         let mut spec = UGenSpec {
             name: "EnvGen".into(),
             rate: self.rate,
+            signal_range: SignalRange::Bipolar,
             special_index: 0,
             inputs: vec![],
             outputs: vec![self.rate],
@@ -1025,6 +1048,7 @@ impl Input for PlayBuf {
         let mut spec = UGenSpec {
             name: "PlayBuf".into(),
             rate: self.ugen_rate,
+            signal_range: SignalRange::Bipolar,
             special_index: 0,
             inputs: vec![],
             outputs: vec![self.ugen_rate; self.number_of_channels],
@@ -1156,6 +1180,7 @@ impl Input for DiskIn {
         let mut spec = UGenSpec {
             name: "DiskIn".into(),
             rate: Rate::Audio,
+            signal_range: SignalRange::Bipolar,
             special_index: 0,
             inputs: Vec::with_capacity(2),
             outputs: vec![Rate::Audio; self.number_of_channels],
