@@ -486,11 +486,6 @@ ugen! {
 }
 
 /// Phase modulation oscillator pair.
-///
-/// # Required Arguments
-///
-/// * `carfreq` - Carrier frequency in cycles per second.
-/// * `modfreq` - Modulator frequency in cycles per second.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct PMOsc {
     sin_osc: fn() -> SinOsc,
@@ -502,23 +497,37 @@ pub struct PMOsc {
 
 impl PMOsc {
     /// Create a UGen that calculates samples at audio rate.
-    pub fn ar(carfreq: impl Input, modfreq: impl Input) -> PMOsc {
-        PMOsc::new(SinOsc::ar, carfreq, modfreq)
+    pub fn ar() -> PMOsc {
+        PMOsc::new(SinOsc::ar)
     }
 
     /// Create a UGen that calculates samples at control rate.
-    pub fn kr(carfreq: impl Input, modfreq: impl Input) -> PMOsc {
-        PMOsc::new(SinOsc::kr, carfreq, modfreq)
+    pub fn kr() -> PMOsc {
+        PMOsc::new(SinOsc::kr)
     }
 
-    fn new(sin_osc: fn() -> SinOsc, carfreq: impl Input, modfreq: impl Input) -> PMOsc {
+    fn new(sin_osc: fn() -> SinOsc) -> PMOsc {
         PMOsc {
             sin_osc,
-            carfreq: carfreq.into_value(),
-            modfreq: modfreq.into_value(),
+            carfreq: 440.0.into_value(),
+            modfreq: 440.0.into_value(),
             pmindex: 0.0.into_value(),
             modphase: 0.0.into_value(),
         }
+    }
+
+    value_setter! {
+        /// Carrier frequency in cycles per second.
+        ///
+        /// Defaults to `440.0`.
+        carfreq
+    }
+
+    value_setter! {
+        /// Modulator frequency in cycles per second.
+        ///
+        /// Defaults to `440.0`.
+        modfreq
     }
 
     value_setter! {
