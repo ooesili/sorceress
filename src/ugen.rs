@@ -273,6 +273,25 @@ ugen! {
 }
 
 ugen! {
+    /// A resonant low pass filter.
+    RLPF[ar, kr] {
+        inputs: {
+            /// The input signal.
+            input: f32 = 0.0,
+
+            /// Cutoff frequency in hertz.
+            ///
+            /// WARNING: due to the nature of its implementation frequency values close to 0 may
+            /// cause glitches and/or extremely loud audio artifacts!
+            freq: f32 = 440.0,
+
+            /// The reciprocal of Q (bandwidth / cutoffFreq).
+            rq: f32 = 1.0
+        }
+    }
+}
+
+ugen! {
     /// Cursor tracking UGen.
     ///
     /// Tracks the x coordinate of the mouse position.
