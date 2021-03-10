@@ -44,21 +44,25 @@
 //! >
 //! > * **scide** is an editor for sclang with an integrated help system."
 //!
-//!  Sorceress is a Rust alternative to **sclang**. It provides features for interacting with
-//!  SuperCollider similar to those found in sclang. It currently contains:
+//! Sorceress is a Rust alternative to **sclang**. It provides features for interacting with
+//! SuperCollider similar to those found in sclang. It currently contains:
 //!
-//!  * [`synthdef`](crate::synthdef) - Core types for designing new synthesizers by creating "synth
-//!    definitions". Synth definitions are graphs of connected unit generators.
+//! * [`synthdef`](crate::synthdef) - Core types for designing new synthesizers by creating "synth
+//!   definitions". Synth definitions are graphs of connected unit generators.
 //!
-//!  * [`ugen`](crate::ugen) -  A library of unit generators or "UGens". **scsynth** provides
-//!    hundreds of unit generators and sorceress aims to provide interfaces for all of them some
-//!    day, but its going to take a while. Please raise an issue on the source repository if there
-//!    are UGens that you'd like to see implemented so I know what to prioritize.
+//! * [`ugen`](crate::ugen) - A library of unit generators or "UGens". **scsynth** provides
+//!   hundreds of unit generators and sorceress aims to provide interfaces for all of them some
+//!   day, but its going to take a while. Please raise an issue on the source repository if there
+//!   are UGens that you'd like to see implemented so I know what to prioritize.
 //!
-//!  * [`server`](crate::server) - A [`Server`](server::Server) type that manages communication
-//!    with scsynth and Rust definitions of all of the OSC commands understood by the server.
-//!    Similar to the library of UGens, that are many commands to implement, around 65, so please
-//!    create an issue if you would like to see certain command implemented sooner.
+//! * [`pattern`](crate::pattern) - A module for defining patterns. Patterns are collections of
+//!   events with timing information. Patterns are created by combining sequences of events in
+//!   order or in parallel. Patterns are the primary way of composing music with sorceress.
+//!
+//! * [`server`](crate::server) - A [`Server`](server::Server) type that manages communication
+//!   with scsynth and Rust definitions of all of the OSC commands understood by the server.
+//!   Similar to the library of UGens, that are many commands to implement, around 65, so please
+//!   create an issue if you would like to see certain command implemented sooner.
 //!
 //! # Examples
 //!
@@ -197,10 +201,6 @@
 //!
 //! # Planned Features
 //!
-//! * A module for defining patterns - This will provide similar capabilities to SuperCollider's
-//!   [`Pseq`], [`Ppar`], [`Pn`], etc. You can read more about sclang's pattern classes the
-//!   [Sequencing with Patterns] section of the Getting Started tutorial.
-//!
 //! * A scheduler for playing patterns - This will be similar to SuperCollider's [`TempoClock`].
 //!
 //! * Declarative resource management - sclang allows arbitrary sections of code in a source code
@@ -229,6 +229,7 @@
 //! [`TempoClock`]: https://doc.sccode.org/Classes/TempoClock.html
 //! [Sequencing with Patterns]: https://doc.sccode.org/Tutorials/Getting-Started/16-Sequencing-with-Patterns.html
 
+pub mod pattern;
 pub mod server;
 pub mod synthdef;
 pub mod ugen;

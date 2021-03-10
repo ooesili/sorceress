@@ -10,3 +10,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add the `PMOsc` UGen.
 - Add the `RLPF` UGen.
 - Add `Input::range` method to easily map the output of a UGen to a specific range of numbers.
+- Add a `pattern` module for defining sequences of events.
