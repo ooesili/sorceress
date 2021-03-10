@@ -34,8 +34,6 @@
 //!   until the command is fully processed and the corresponding reply is received by the client.
 //! * The [`Reply`] type - An enum type containing all possible asynchronous replies sent by the
 //!   SuperCollider server to the client.
-//! * The [`Subscriber`] type - Allows callbacks to be registered with a [`Server`] which are
-//!   called with each [`Reply`] that is received from the SuperCollider server.
 //!
 //! # Commands
 //!
