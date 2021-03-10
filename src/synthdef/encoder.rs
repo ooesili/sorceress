@@ -234,22 +234,22 @@ fn encode_graphs(graphs: Vec<SynthDefGraph>, out: &mut Vec<u8>) {
 }
 
 fn write_i32(w: &mut Vec<u8>, n: i32) {
-    w.write(&n.to_be_bytes()).unwrap();
+    w.write_all(&n.to_be_bytes()).unwrap();
 }
 
 fn write_i16(w: &mut Vec<u8>, n: i16) {
-    w.write(&n.to_be_bytes()).unwrap();
+    w.write_all(&n.to_be_bytes()).unwrap();
 }
 
 fn write_i8(w: &mut Vec<u8>, n: i8) {
-    w.write(&n.to_be_bytes()).unwrap();
+    w.write_all(&n.to_be_bytes()).unwrap();
 }
 
 fn write_f32(w: &mut Vec<u8>, n: f32) {
-    w.write(&n.to_be_bytes()).unwrap();
+    w.write_all(&n.to_be_bytes()).unwrap();
 }
 
 fn write_pstring(w: &mut Vec<u8>, s: &str) {
     w.write_all(&[s.len() as u8]).unwrap();
-    w.write(s.as_bytes()).unwrap();
+    w.write_all(s.as_bytes()).unwrap();
 }
