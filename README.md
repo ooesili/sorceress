@@ -40,16 +40,15 @@ use sorceress::{
 use std::{thread::sleep, time::Duration};
 
 fn main() -> Result<()> {
-    let server = Server::new("127.0.0.1:57110")?;
+    let server = Server::connect("127.0.0.1:57110")?;
 
-    let sine_wave = SynthDef::connect(
-        "sine_wave",
-        ugen::Out::ar().channels(ugen::Pan2::ar().input(ugen::SinOsc::ar().freq(220))),
-    );
-    let encoded_synthdef = encode_synth_defs(vec![sine_wave])?;
+    let sine_wave = SynthDef::new("sine_wave", |_| {
+        ugen::Out::ar().channels(ugen::Pan2::ar().input(ugen::SinOsc::ar().freq(220)))
+    });
+    let encoded_synthdef = encode_synth_defs(vec![sine_wave]);
     server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
 
-    server.send(server::SynthNew::new("sine_wave", 1, vec![]))?;
+    server.send(server::SynthNew::new("sine_wave", 1))?;
     sleep(Duration::from_secs(1));
 
     server.reset()?;
