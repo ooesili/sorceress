@@ -386,37 +386,60 @@ impl<M> Patterns<M> {
 ///
 /// Returned by the `into_iter` method on [`Pattern`].
 #[must_use]
-pub struct IntoIter<M>(Box<dyn Iterator<Item = Event<M>>>);
+#[derive(Debug)]
+pub struct IntoIter<M>(IntoIterInner<M>);
 
-impl<M: 'static> IntoIterator for Pattern<M> {
+#[derive(Debug)]
+enum IntoIterInner<M> {
+    Event(iter::Once<Event<M>>),
+    Parallel(ParallelIter<M>),
+    Sequence(
+        Box<
+            iter::FlatMap<
+                std::vec::IntoIter<Pattern<M>>,
+                IntoIter<M>,
+                fn(Pattern<M>) -> IntoIter<M>,
+            >,
+        >,
+    ),
+}
+
+impl<M> IntoIterator for Pattern<M> {
     type Item = Event<M>;
     type IntoIter = IntoIter<M>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter(match self.0 {
-            PatternInner::Event(event) => Box::new(iter::once(event)),
-            PatternInner::Parallel(patterns) => Box::new(ParallelIter::new(patterns)),
+            PatternInner::Event(event) => IntoIterInner::Event(iter::once(event)),
+            PatternInner::Parallel(patterns) => {
+                IntoIterInner::Parallel(ParallelIter::new(patterns))
+            }
             PatternInner::Sequence(patterns) => {
-                Box::new(patterns.into_iter().flat_map(Pattern::into_iter))
+                IntoIterInner::Sequence(Box::new(patterns.into_iter().flat_map(Pattern::into_iter)))
             }
         })
     }
 }
 
-impl<M: 'static> Iterator for IntoIter<M> {
+impl<M> Iterator for IntoIter<M> {
     type Item = Event<M>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        match self.0 {
+            IntoIterInner::Event(ref mut iter) => iter.next(),
+            IntoIterInner::Parallel(ref mut iter) => iter.next(),
+            IntoIterInner::Sequence(ref mut iter) => iter.next(),
+        }
     }
 }
 
 #[must_use]
-struct ParallelIter<M: 'static> {
+#[derive(Debug)]
+struct ParallelIter<M> {
     merged: Peekable<Merged<M>>,
 }
 
-impl<M: 'static> ParallelIter<M> {
+impl<M> ParallelIter<M> {
     fn new(patterns: Vec<Pattern<M>>) -> Self {
         Self {
             merged: Merged::new(patterns).peekable(),
@@ -437,7 +460,8 @@ impl<M> Iterator for ParallelIter<M> {
 }
 
 #[must_use]
-struct Merged<M: 'static> {
+#[derive(Debug)]
+struct Merged<M> {
     iters: Vec<Peekable<Position<M>>>,
 }
 
@@ -468,7 +492,8 @@ impl<M> Iterator for Merged<M> {
 }
 
 #[must_use]
-struct Position<M: 'static> {
+#[derive(Debug)]
+struct Position<M> {
     position: f64,
     iter: IntoIter<M>,
 }
