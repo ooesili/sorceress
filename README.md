@@ -31,9 +31,8 @@ There are projects in many other programming languages for interacting with Supe
 This example plays a sine wave at 220 Hz for 1 second:
 
 ```rust
-use anyhow::Result;
 use sorceress::{
-    server::{self, Server},
+    server::{self, Result, Server},
     synthdef::{encoder::encode_synth_defs, SynthDef},
     ugen,
 };
