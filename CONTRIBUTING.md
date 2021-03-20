@@ -70,3 +70,5 @@ If you would like to make a pull request please do the following:
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
   ```
+
+* Add a description of any user-facing changes in the _Unreleased_ section of `CHANGELOG.md` following the format described by the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) project.
