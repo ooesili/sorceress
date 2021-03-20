@@ -86,6 +86,8 @@
 
 use std::iter::{self, Peekable};
 
+pub mod player;
+
 /// A collection of events with timing information.
 ///
 /// Patterns can be created using the [`sequence`] and [`parallel`] functions. Patterns can be

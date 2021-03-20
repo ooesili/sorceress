@@ -56,8 +56,13 @@
 //!   are UGens that you'd like to see implemented so I know what to prioritize.
 //!
 //! * [`pattern`](crate::pattern) - A module for defining patterns. Patterns are collections of
-//!   events with timing information. Patterns are created by combining sequences of events in
-//!   order or in parallel. Patterns are the primary way of composing music with sorceress.
+//!   events with timing information. Patterns are created by combining collections of events in
+//!   sequence or in parallel. Patterns are the primary way of composing music with sorceress. The
+//!   [`scheduler`](crate::scheduler) module can be used in combination with the
+//!   [`pattern::player`](crate::pattern::player) submodule to play patterns.
+//!
+//! * [`scheduler`](crate::scheduler) - A module for running code on a recurring schedule. The
+//!   scheduler is responsible handling the timing details of executing patterns.
 //!
 //! * [`server`](crate::server) - A [`Server`](server::Server) type that manages communication
 //!   with scsynth and Rust definitions of all of the OSC commands understood by the server.
@@ -70,11 +75,17 @@
 //!
 //! ```no_run
 //! use sorceress::{
-//!     server::{self, Control, Result, Server},
+//!     pattern::{
+//!         player::{Player, Tempo},
+//!         sequence, Pattern,
+//!     },
+//!     scheduler::Scheduler,
+//!     server::{self, Bundle, Control, Server},
 //!     synthdef::{encoder::encode_synth_defs, Input, SynthDef},
 //!     ugen,
 //! };
-//! use std::{thread::sleep, time::Duration};
+//!
+//! type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 //!
 //! fn main() -> Result<()> {
 //!     // Create a new SuperCollider server client. A SuperCollider server must be started
@@ -113,28 +124,62 @@
 //!     let encoded_synthdef = encode_synth_defs(vec![sine_wave]);
 //!     server.send_sync(server::SynthDefRecv::new(&encoded_synthdef))?;
 //!
-//!     // We launch a single synth and set its pitch multiple times to create a melody. Synth
-//!     // IDs are numbers that let us to refer to synths after we crate them.
-//!     let synth_id: i32 = 1000;
+//!     // Play a sequence of notes. The first number is the duration in beats and the second
+//!     // number is the midi note number.
+//!     let pattern: Pattern<Event> = sequence(|s| {
+//!         s.play(1.2, Event::StartNote(72.0));
+//!         s.play(1.5, Event::SetPitch(71.0));
+//!         s.play(1.5, Event::SetPitch(72.0));
+//!         s.play(3.0, Event::SetPitch(71.0));
+//!         s.play(3.0, Event::SetPitch(67.0));
+//!         s.play(3.0, Event::SetPitch(64.0));
+//!         s.play(3.0, Event::SetPitch(71.0));
+//!         s.play(6.0, Event::SetPitch(69.0));
+//!         s.play(4.0, Event::SetPitch(72.0));
+//!         s.play(2.0, Event::SetPitch(71.0));
+//!         s.play(2.0, Event::SetPitch(72.0));
+//!         s.play(4.0, Event::SetPitch(71.0));
+//!         s.play(4.0, Event::SetPitch(67.0));
+//!         s.play(4.0, Event::SetPitch(64.0));
+//!         s.play(4.0, Event::SetPitch(71.0));
+//!         s.play(6.0, Event::SetPitch(69.0));
+//!     });
 //!
-//!     // Play series of notes. The second to last number is the midi node number, the last
-//!     // is the duration of the note in milliseconds.
-//!     start_note(&server, synth_id, 72.0, 1200)?;
-//!     set_pitch(&server, synth_id, 71.0, 150)?;
-//!     set_pitch(&server, synth_id, 72.0, 150)?;
-//!     set_pitch(&server, synth_id, 71.0, 300)?;
-//!     set_pitch(&server, synth_id, 67.0, 300)?;
-//!     set_pitch(&server, synth_id, 64.0, 300)?;
-//!     set_pitch(&server, synth_id, 71.0, 300)?;
-//!     set_pitch(&server, synth_id, 69.0, 600)?;
-//!     set_pitch(&server, synth_id, 72.0, 400)?;
-//!     set_pitch(&server, synth_id, 71.0, 200)?;
-//!     set_pitch(&server, synth_id, 72.0, 200)?;
-//!     set_pitch(&server, synth_id, 71.0, 400)?;
-//!     set_pitch(&server, synth_id, 67.0, 400)?;
-//!     set_pitch(&server, synth_id, 64.0, 400)?;
-//!     set_pitch(&server, synth_id, 71.0, 400)?;
-//!     set_pitch(&server, synth_id, 69.0, 600)?;
+//!     let event_handler = |time, event| {
+//!         // We launch a single synth and set its pitch multiple times to create a melody. Synth
+//!         // IDs are numbers that let us to refer to synths after we crate them.
+//!         let synth_id: i32 = 1000;
+//!
+//!         let result = match event {
+//!             Event::StartNote(midi_note) => {
+//!                 // Create a new synth from the synth definition we registered earlier.
+//!                 let command = server::SynthNew::new("sine_wave", 1)
+//!                     // Convert the midi note into hertz. The "freq" string refers to the string
+//!                     // given to the `Parameter` in the synth definition above.
+//!                     .controls(vec![Control::new("freq", midi_to_hz(midi_note))])
+//!                     // Explicitly set the synth ID so that we can control it later.
+//!                     .synth_id(synth_id);
+//!
+//!                 server
+//!                     // Ask SuperCollider to schedule this event at exactly this time.
+//!                     .send(Bundle::new(time, vec![command]))
+//!             }
+//!             Event::SetPitch(midi_note) => {
+//!                 // Convert the midi note into hertz.
+//!                 let controls = vec![Control::new("freq", midi_to_hz(midi_note))];
+//!
+//!                 // Changes the pitch of the actively playing synth.
+//!                 let command = server::NodeSet::new(synth_id, controls);
+//!                 server.send(Bundle::new(time, vec![command]))
+//!             }
+//!         };
+//!         if let Err(err) = result {
+//!             println!("error: sending event to server: {}", err);
+//!         };
+//!     };
+//!
+//!     // Play the pattern using the scheduler.
+//!     Scheduler::new().run(Player::new(pattern, event_handler).tempo(Tempo::from_bpm(60.0)))?;
 //!
 //!     // Stop all sounds on the server.
 //!     server.reset()?;
@@ -142,32 +187,10 @@
 //!     Ok(())
 //! }
 //!
-//! fn start_note(server: &Server, synth_id: i32, midi_note: f32, dur_millis: u64) -> Result<()> {
-//!     // Create a new synth from the synth definition we registered earlier.
-//!     server.send(
-//!         server::SynthNew::new("sine_wave", 1)
-//!              // Convert the midi note into hertz. The "freq" string refers to the string
-//!              // given to the `Parameter` in the synth definition above.
-//!             .controls(vec![Control::new("freq", midi_to_hz(midi_note))])
-//!             // Explicitly set the synth ID so that we can control it later.
-//!             .synth_id(synth_id),
-//!     )?;
-//!
-//!     // Sleep to delay the next note.
-//!     sleep(Duration::from_millis(dur_millis));
-//!     Ok(())
-//! }
-//!
-//! fn set_pitch(server: &Server, synth_id: i32, midi_note: f32, dur_millis: u64) -> Result<()> {
-//!     // Convert the midi note into hertz.
-//!     let controls = vec![Control::new("freq", midi_to_hz(midi_note))];
-//!
-//!     // Changes the pitch of the actively playing synth.
-//!     server.send(server::NodeSet::new(synth_id, controls))?;
-//!
-//!     // Sleep to delay the next note.
-//!     sleep(Duration::from_millis(dur_millis));
-//!     Ok(())
+//! // Our event type.
+//! enum Event {
+//!     StartNote(f32),
+//!     SetPitch(f32),
 //! }
 //!
 //! // Convert a midi note number into a frequency in hertz.
@@ -201,8 +224,6 @@
 //!
 //! # Planned Features
 //!
-//! * A scheduler for playing patterns - This will be similar to SuperCollider's [`TempoClock`].
-//!
 //! * Declarative resource management - sclang allows arbitrary sections of code in a source code
 //!   file to be executed in any order using **scide**. This makes it very easy to run setup code
 //!   that creates server-side resources such as buffers and synthdefs once before executing the
@@ -230,6 +251,7 @@
 //! [Sequencing with Patterns]: https://doc.sccode.org/Tutorials/Getting-Started/16-Sequencing-with-Patterns.html
 
 pub mod pattern;
+pub mod scheduler;
 pub mod server;
 pub mod synthdef;
 pub mod ugen;

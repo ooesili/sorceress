@@ -604,12 +604,13 @@ impl ControlValue {
 
 /// A list of commands and a time tag.
 ///
-/// An bundle contains zero or more [`Command`] values and and a time tag. The contained commands
-/// should be applied at the given time tag.
+/// An bundle contains one or more [`Command`] values and and a time tag. The SuperCollider server
+/// will execute all of the commands in a bundle precisely at the time specified in the bundle.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bundle(OscBundle);
 
 impl Bundle {
+    /// Creates a new bundle of commands tagged with the given time.
     pub fn new<I, C>(time: SystemTime, commands: I) -> Bundle
     where
         I: IntoIterator<Item = C>,
