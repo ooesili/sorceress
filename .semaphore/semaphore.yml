@@ -1,0 +1,22 @@
+version: v1.0
+name: sorceress
+
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu1804
+  containers:
+  - name: main
+    image: ooesili/semaphore-nix:latest
+  image_pull_secrets:
+  - name: dockerhub
+
+blocks:
+- name: Build
+  task:
+    jobs:
+    - name: Build
+      commands:
+      - checkout
+      - ci/build-dependencies
+      - nix-build

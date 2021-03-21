@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CACHE_CLOSURE_FILE=/tmp/build-inputs.closure
+
+main() {
+  cache_restore
+  cache_store "$(build_dependencies)"
+}
+
+cache_restore() {
+  log 'restoring from cache'
+
+  cache restore "nix-$SEMAPHORE_GIT_BRANCH,nix-master,nix-store"
+
+  if [[ -f $CACHE_CLOSURE_FILE ]]; then
+    log "importing cached closure into the nix store"
+    nix-store --import < $CACHE_CLOSURE_FILE
+  else
+    log "cache did not contain a file called $CACHE_CLOSURE_FILE"
+  fi
+}
+
+build_dependencies() {
+  log 'building dependencies'
+  nix-build -A inputDerivation --no-link
+}
+
+cache_store() {
+  local deps_store_path=$1
+
+  local cache_key
+  cache_key="nix-$SEMAPHORE_GIT_BRANCH-$(output_hash "$deps_store_path")"
+
+  if cache has_key "$cache_key"; then
+    log "cache already contains key $cache_key, nothing to do"
+  else
+    log "exporting build dependency closure"
+    nix-store -qR "$deps_store_path" | xargs -x nix-store --export > $CACHE_CLOSURE_FILE
+    log "uploading closure to cache"
+    cache store "$cache_key" $CACHE_CLOSURE_FILE
+  fi
+}
+
+output_hash() {
+  local store_path=$1
+
+  basename="$(basename "$store_path")"
+  output_hash="${basename:0:32}"
+  echo "$output_hash"
+}
+
+log() {
+  echo "===> $*" >&2
+}
+
+main "$@"
