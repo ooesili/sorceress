@@ -150,8 +150,8 @@ pub struct Scheduler {
     sender: Sender<Result<Message>>,
 }
 
-impl Scheduler {
-    pub fn new() -> Scheduler {
+impl Default for Scheduler {
+    fn default() -> Scheduler {
         let (sender, receiver) = mpsc::channel();
         Scheduler {
             ahead_by: Duration::from_millis(100),
@@ -159,7 +159,9 @@ impl Scheduler {
             sender,
         }
     }
+}
 
+impl Scheduler {
     pub fn ahead_by(mut self, ahead_by: Duration) -> Self {
         self.ahead_by = ahead_by;
         self
@@ -363,7 +365,6 @@ where
 fn spawn_delay(message_sender: Sender<Result<Message>>) -> Sender<Duration> {
     let (delay_sender, delays) = mpsc::channel();
     thread::spawn({
-        let message_sender = message_sender.clone();
         move || {
             for delay in delays {
                 thread::sleep(delay);

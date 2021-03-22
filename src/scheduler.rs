@@ -89,13 +89,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct Error(scheduler_impl::Error);
 
 /// An ahead-of-time scheduler for executing recurring tasks.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Scheduler(scheduler_impl::Scheduler);
 
 impl Scheduler {
     /// Create a new scheduler
     pub fn new() -> Scheduler {
-        Scheduler(scheduler_impl::Scheduler::new())
+        Scheduler::default()
     }
 
     /// Schedule the job in advance.

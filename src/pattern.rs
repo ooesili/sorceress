@@ -395,16 +395,11 @@ pub struct IntoIter<M>(IntoIterInner<M>);
 enum IntoIterInner<M> {
     Event(iter::Once<Event<M>>),
     Parallel(ParallelIter<M>),
-    Sequence(
-        Box<
-            iter::FlatMap<
-                std::vec::IntoIter<Pattern<M>>,
-                IntoIter<M>,
-                fn(Pattern<M>) -> IntoIter<M>,
-            >,
-        >,
-    ),
+    Sequence(Box<SequenceIntoIter<M>>),
 }
+
+type SequenceIntoIter<M> =
+    iter::FlatMap<std::vec::IntoIter<Pattern<M>>, IntoIter<M>, fn(Pattern<M>) -> IntoIter<M>>;
 
 impl<M> IntoIterator for Pattern<M> {
     type Item = Event<M>;
