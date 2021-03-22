@@ -11,7 +11,9 @@ categories = ["api-bindings", "multimedia::audio"]
 edition = "2018"
 
 exclude = [
+  ".semaphore/*",
   "assets/*",
+  "ci/*",
   "default.nix",
   "nix/*",
 ]
