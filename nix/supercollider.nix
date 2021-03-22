@@ -1,6 +1,5 @@
 { lib, stdenv, fetchurl, cmake, pkg-config, alsaLib
-, libjack2, libsndfile, fftwSinglePrec, curl, gcc, libudev
-, readline, useSCEL ? false, emacs
+, libjack2, libsndfile, fftwSinglePrec, curl, gcc, emacs
 }:
 
 let optional = lib.optional;
@@ -19,8 +18,13 @@ stdenv.mkDerivation rec {
 
   cmakeFlags = [
     "-DNO_X11=ON"
-    "-DSC_EL=${if useSCEL then "ON" else "OFF"}"
+    "-DSC_ABLETON_LINK=OFF"
+    "-DSC_ED=OFF"
+    "-DSC_EL=OFF"
+    "-DSC_HIDAPI=OFF"
+    "-DSC_IDE=OFF"
     "-DSC_QT=OFF"
+    "-DSC_VIM=OFF"
     "-DSUPERNOVA=OFF"
   ];
 
@@ -29,9 +33,8 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ cmake pkg-config ];
 
   buildInputs = [
-    gcc libjack2 libsndfile fftwSinglePrec curl readline libudev ]
-      ++ optional (!stdenv.isDarwin) alsaLib
-      ++ optional useSCEL emacs;
+    gcc libjack2 libsndfile fftwSinglePrec curl ]
+      ++ optional (!stdenv.isDarwin) alsaLib;
 
   meta = with lib; {
     description = "Programming language for real time audio synthesis";
