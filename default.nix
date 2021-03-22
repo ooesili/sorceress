@@ -5,10 +5,9 @@ let overlay = self: super: {
 in { pkgs ? import ./nix/sources.nix { overlays = [ overlay ]; } }:
 
 pkgs.rustPlatform.buildRustPackage {
-  pname = "sorceress";
-  version = "0.0.1";
+  name = "sorceress";
 
-  cargoSha256 = "1ym0d1v58mhcbv505qifiyksmbl8d9pl3q7r1s171qnpgsnfvr9b";
+  cargoSha256 = "0zvvcmzxywiwkqdndsvjla4f1phnd977f1r12qqk8p55bb5bzn0q";
   nativeBuildInputs = [ pkgs.supercollider ];
   src = pkgs.lib.cleanSource ./.;
 }

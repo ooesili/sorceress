@@ -1,6 +1,6 @@
 [package]
 name = "sorceress"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Wesley Merkel <ooesili@gmail.com>"]
 license = "GPL-3.0-or-later"
 repository = "https://github.com/ooesili/sorceress"
