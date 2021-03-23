@@ -7,7 +7,7 @@ in { pkgs ? import ./nix/sources.nix { overlays = [ overlay ]; } }:
 pkgs.rustPlatform.buildRustPackage {
   name = "sorceress";
 
-  cargoSha256 = "0zvvcmzxywiwkqdndsvjla4f1phnd977f1r12qqk8p55bb5bzn0q";
+  cargoSha256 = "00m2qrdd3c21d6w94jfhvia55nkh9cjnvw1ajg5b6kw7ynrzy79d";
   nativeBuildInputs = [ pkgs.supercollider ];
   src = pkgs.lib.cleanSource ./.;
 }

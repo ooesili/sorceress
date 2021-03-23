@@ -163,9 +163,8 @@ mod osc_router;
 mod private;
 
 use private::{Message, Packet, ReplyMatcher};
-use rosc::{
-    decoder::decode, encoder::encode, OscBundle, OscError, OscMessage, OscPacket, OscTime, OscType,
-};
+use rosc::{decoder::decode, encoder::encode, OscBundle, OscError, OscMessage, OscPacket, OscType};
+use std::convert::TryInto;
 use std::{
     error, fmt, io,
     net::{ToSocketAddrs, UdpSocket},
@@ -174,7 +173,7 @@ use std::{
         mpsc, Arc, Mutex,
     },
     thread,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 // TODO: graceful server shutdown and change documentation on `Server::subscribe` to say that the
@@ -420,8 +419,8 @@ impl error::Error for Error {
             ErrorInner::UdpConnect(e) => Some(e),
             ErrorInner::Send(e) => Some(e),
             ErrorInner::Recv(e) => Some(e),
-            ErrorInner::OscDecode(_) => None,
-            ErrorInner::OscEncode(_) => None,
+            ErrorInner::OscDecode(e) => Some(e),
+            ErrorInner::OscEncode(e) => Some(e),
         }
     }
 }
@@ -611,31 +610,23 @@ pub struct Bundle(OscBundle);
 
 impl Bundle {
     /// Creates a new bundle of commands tagged with the given time.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given time is before `2036-02-07 06:28:15 UTC` or after `2036-02-07 06:28:15
+    /// UTC`. OSC timestamps cannot represent times outside of this range.
     pub fn new<I, C>(time: SystemTime, commands: I) -> Bundle
     where
         I: IntoIterator<Item = C>,
         C: Command,
     {
         Bundle(OscBundle {
-            timetag: Self::osc_time(time),
+            timetag: time.try_into().unwrap(),
             content: commands
                 .into_iter()
                 .map(|command| command.into_packet().0)
                 .collect(),
         })
-    }
-
-    fn osc_time(time: SystemTime) -> OscTime {
-        const UNIX_OFFSET: u64 = 2_208_988_800; // From RFC 5905
-        const TWO_POW_32: f64 = 4294967296.0;
-
-        let unix_time = time.duration_since(SystemTime::UNIX_EPOCH).unwrap(); // Safe absent time machines
-        let unix_offset = Duration::new(UNIX_OFFSET, 0);
-        let epoch_time = unix_offset + unix_time;
-        let ts_secs = epoch_time.as_secs() as u32;
-        let ts_nanos = epoch_time.subsec_nanos() as f64;
-        let ts_frac = ((ts_nanos * TWO_POW_32) / 1.0e9).round() as u32;
-        (ts_secs, ts_frac)
     }
 }
 
